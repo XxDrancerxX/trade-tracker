@@ -16,8 +16,20 @@ Including another URLconf
 """
 
 from django.contrib import admin
-from django.urls import path
+from django.urls import path,include
+from rest_framework.routers import DefaultRouter
+from api.views import SpotTradeViewSet, FuturesTradeViewSet
+from django.http import HttpResponse
+
+router = DefaultRouter()
+router.register(r'spot-trades', SpotTradeViewSet)
+router.register(r'futures-trades', FuturesTradeViewSet)
+
+def home(request):
+    return HttpResponse("✅ Welcome to the Trade Tracker API!")
 
 urlpatterns = [
-    path("admin/", admin.site.urls),
+    path("", home),
+    path("admin/", admin.site.urls),      # ✅ Keeps the admin panel!
+    path("api/", include(router.urls)),   # ✅ REST API at /api/...
 ]
