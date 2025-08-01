@@ -106,7 +106,7 @@ AUTH_PASSWORD_VALIDATORS = [
 
 LANGUAGE_CODE = "en-us"
 
-TIME_ZONE = "UTC"
+TIME_ZONE = 'America/New_York' #Django displays times in this zone only when you use localtime() or when rendering templates using timezone.localtime.
 
 USE_I18N = True
 
