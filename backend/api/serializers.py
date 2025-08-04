@@ -3,19 +3,21 @@ from .models import SpotTrade, FuturesTrade
 from django.utils.timezone import localtime
 from datetime import timezone
 
+#Defining a serializers for Our .Models using Django REST Framework (DRF):
 
-class SpotTradeSerializer(serializers.ModelSerializer):
-    trade_time_utc = serializers.SerializerMethodField()
+class SpotTradeSerializer(serializers.ModelSerializer): # => Converts our .model instances to JSON (and vice versa) for API communication
+
+    trade_time_utc = serializers.SerializerMethodField()  #This field will be calculated using a custom method you define.We use SerializerMethodField to add custom, read-only fields (not stored in the model or database).
     trade_time_local = serializers.SerializerMethodField()
 
-    class Meta:
+    class Meta: #Meta is a special inner class sed to configure behavior for other classes like ModelSerializer.
         model = SpotTrade
         fields = [
             'id', 'symbol', 'price', 'amount', 'side',
             'exchange', 'currency', 'notes', 'user',
-            'trade_time_utc', 'trade_time_local'  
+            'trade_time_utc', 'trade_time_local'  # =>We add our customs-fields made above  provided by SerializerMethodField.
         ]
-        read_only_fields = ('trade_time',)
+        read_only_fields = ('trade_time',) # =>This field should only be included in the output,So clients can see it, but can’t send or change it.Django sets this field automatically when the object is saved in our .Models.
 
     def get_trade_time_utc(self, obj):
      return obj.trade_time.astimezone(timezone.utc).strftime("%Y-%m-%d %H:%M:%S")
@@ -33,11 +35,11 @@ class SpotTradeSerializer(serializers.ModelSerializer):
 
 
 
-class FuturesTradeSerializer(serializers.ModelSerializer):
-    trade_time_utc = serializers.DateTimeField(source='trade_time', read_only=True)
+class FuturesTradeSerializer(serializers.ModelSerializer):# => Converts our .model instances to JSON (and vice versa) for API communication
+    trade_time_utc = serializers.DateTimeField(source='trade_time', read_only=True) # We use SerializerMethodField to add custom, read-only fields (not stored in the model or database).
     trade_time_local = serializers.SerializerMethodField()
 
-    class Meta:
+    class Meta:#Meta is a special inner class sed to configure behavior for other classes like ModelSerializer.
         model = FuturesTrade
         fields = [
             'id',
