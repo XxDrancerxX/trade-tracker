@@ -11,6 +11,14 @@ https://docs.djangoproject.com/en/5.2/ref/settings/
 """
 
 from pathlib import Path
+from dotenv import load_dotenv
+import os
+load_dotenv()
+
+
+#Globally installed API keys for testing endpoints in coinbase.
+COINBASE_API_KEY = os.getenv("COINBASE_API_KEY")
+COINBASE_API_SECRET = os.getenv("COINBASE_API_SECRET")
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
