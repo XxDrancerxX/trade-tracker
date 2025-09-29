@@ -21,9 +21,9 @@ from rest_framework.routers import DefaultRouter
 from api.views import SpotTradeViewSet, FuturesTradeViewSet
 from django.http import HttpResponse
 
-router = DefaultRouter()
-router.register(r'spot-trades', SpotTradeViewSet)
-router.register(r'futures-trades', FuturesTradeViewSet)
+router = DefaultRouter() # => This router automatically generates URL patterns for our viewsets. We register our viewsets with specific URL prefixes.
+router.register(r'spot-trades', SpotTradeViewSet ) # => This line registers the SpotTradeViewSet with the router. The URL prefix 'spot-trades' means that all endpoints for this viewset will be accessible under /api/spot-trades/. The basename is used to name the URL patterns.
+router.register(r'futures-trades', FuturesTradeViewSet) # => This line registers the FuturesTradeViewSet with the router. The URL prefix 'futures-trades' means that all endpoints for this viewset will be accessible under /api/futures-trades/. The basename is used to name the URL patterns.
 
 def home(request):
     return HttpResponse("✅ Welcome to the Trade Tracker API!")
