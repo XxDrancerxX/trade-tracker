@@ -1,15 +1,23 @@
 # => ||| Here it's where you define what happens when a request hits your endpoint. ||| <= #
 from django.shortcuts import render
-from rest_framework import viewsets
+from rest_framework import viewsets, permissions
 from .models import SpotTrade,FuturesTrade
 from .serializers import SpotTradeSerializer, FuturesTradeSerializer
-
 # Create your views here.
-class SpotTradeViewSet(viewsets.ModelViewSet): # => automatically builds all RESTful endpoints for your model (GET, POST, PUT, DELETE) without you having to define each one manually.
-    queryset = SpotTrade.objects.all() # =>It's the default data pulled from our .Models, queryset is the special built-in atttribute of Django Rest. We must use this exact name to  use our.Models.
-    serializer_class = SpotTradeSerializer # => This is the serializer to use when converting data between JSON and Python objects.
 
-class FuturesTradeViewSet(viewsets.ModelViewSet):# => automatically builds all RESTful endpoints for your model (GET, POST, PUT, DELETE) without you having to define each one manually.
-    queryset = FuturesTrade.objects.all()# => It's the default data pulled from our .Models, queryset is the special built-in atttribute of Django Rest. We must use this exact name to  use our.Models.
-    serializer_class = FuturesTradeSerializer # => This is the serializer to use when converting data between JSON and Python objects.
+#We already set IsAuthenticated globally in REST_FRAMEWORK(settings.py), so this line is redundant but harmless.
+#It just makes the rule obvious at the view level.
 
+class SpotTradeViewSet(viewsets.ModelViewSet):# => automatically builds all RESTful endpoints for your model (GET, POST, PUT, DELETE) without you having to define each one manually.
+    serializer_class = SpotTradeSerializer # => Specifies which serializer to use for converting model instances to/from JSON.
+    permission_classes = [permissions.IsAuthenticated] # => Ensures that only authenticated users can access these endpoints.
+
+    def get_queryset(self): # => This method defines the set of objects that the view will operate on.
+        return SpotTrade.objects.filter(user=self.request.user) # => This method customizes the queryset to only include trades belonging to the currently logged-in user. This ensures users can only see and manage their own trades.
+
+class FuturesTradeViewSet(viewsets.ModelViewSet):
+    serializer_class = FuturesTradeSerializer
+    permission_classes = [permissions.IsAuthenticated] #
+
+    def get_queryset(self):
+        return FuturesTrade.objects.filter(user=self.request.user)

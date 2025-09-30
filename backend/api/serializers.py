@@ -8,16 +8,16 @@ from datetime import timezone
 #First model
 class SpotTradeSerializer(serializers.ModelSerializer): # => Converts our .model instances to JSON (and vice versa) for API communication
     # Auto-attach the logged-in user; hidden from requests/responses by default.
-    user = serializers.HiddenField(default=serializers.CurrentUserDefault()) # => Automatically sets the user field to the currently authenticated user making the request. This way, clients don’t have to (and can’t) specify the user when creating or updating a trade; it’s handled by the server.
+    user = serializers.HiddenField(default=serializers.CurrentUserDefault()) # => You don’t include user in POST bodies.Automatically sets the user field to the currently authenticated user making the request. This way, clients don’t have to (and can’t) specify the user when creating or updating a trade; it’s handled by the server.
     trade_time_utc = serializers.SerializerMethodField()  #This field will be calculated using a custom method you define.We use SerializerMethodField to add custom, read-only fields (not stored in the model or database).
-    trade_time_local = serializers.SerializerMethodField()
+    trade_time_local = serializers.SerializerMethodField() 
 
     class Meta: #Meta is a special inner class sed to configure behavior for other classes like ModelSerializer.
         model = SpotTrade
         fields = [
             'id', 'symbol', 'price', 'amount', 'side',
             'exchange', 'currency', 'notes', 'user',
-            'trade_time_utc', 'trade_time_local'  # =>We add our customs-fields made above  provided by SerializerMethodField.
+            'trade_time_utc', 'trade_time_local','trade_time'  # =>We add our customs-fields made above  provided by SerializerMethodField.
         ]
         read_only_fields = ('trade_time','id') # =>This field should only be included in the output,So clients can see it, but can’t send or change it.Django sets this field automatically when the object is saved in our .Models.
 
@@ -28,14 +28,14 @@ class SpotTradeSerializer(serializers.ModelSerializer): # => Converts our .model
     # These fields are not saved in the database — they exist only during serialization (output).
     #  ↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓ #
     def get_trade_time_utc(self, obj):
-     return obj.trade_time.astimezone(timezone.utc).strftime("%Y-%m-%d %H:%M:%S")
+     return obj.trade_time.astimezone(timezone.utc).strftime("%Y-%m-%d %H:%M:%S") #Converts the trade_time to UTC and formats it as a string.
 
     def get_trade_time_local(self, obj):
         return localtime(obj.trade_time).strftime("%Y-%m-%d %H:%M:%S") #Converts the UTC time with "localtime()" from the database into our server’s local time zone, as set in settings.py
 
 
     def to_internal_value(self, data):
-        if "side" in data and isinstance(data["side"], str):
+        if "side" in data and isinstance(data["side"], str): # => This method is called during deserialization, when converting incoming data (e.g., from a POST request) into a model instance. Here, we ensure that the 'side' field is always stored in uppercase.
             data["side"] = data["side"].upper()
         return super().to_internal_value(data) 
 
@@ -63,7 +63,8 @@ class FuturesTradeSerializer(serializers.ModelSerializer):# => Converts our .mod
             'notes',
             'user',
             'trade_time_utc',
-            'trade_time_local'
+            'trade_time_local',
+            'trade_time'
         ]
         read_only_fields = ('trade_time','id') # =>This field should only be included in the output,So clients can see it, but can’t send or change it.Django sets this field automatically when the object is saved in our .Models.
 
@@ -74,6 +75,6 @@ class FuturesTradeSerializer(serializers.ModelSerializer):# => Converts our .mod
        return localtime(obj.trade_time).strftime("%Y-%m-%d %H:%M:%S") #Converts the UTC time from the database into our server’s local time zone, as set in settings.py
 
     def to_internal_value(self, data):
-        if "side" in data and isinstance(data["side"], str):
+        if "side" in data and isinstance(data["side"], str): # => This method is called during deserialization, when converting incoming data (e.g., from a POST request) into a model instance. Here, we ensure that the 'side' field is always stored in uppercase.
             data["side"] = data["side"].upper()
         return super().to_internal_value(data)

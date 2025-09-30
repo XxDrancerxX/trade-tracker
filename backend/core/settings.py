@@ -48,6 +48,22 @@ INSTALLED_APPS = [
     "api",
     "rest_framework"
 ]
+# Django REST Framework settings for authentication and permissions
+# You can customize these settings as needed.
+
+
+REST_FRAMEWORK = {
+    "DEFAULT_AUTHENTICATION_CLASSES": [
+        "rest_framework.authentication.SessionAuthentication", # => Uses Django’s session framework for authentication.
+        # Later you can add JWT:
+        # "rest_framework_simplejwt.authentication.JWTAuthentication",
+    ],
+    #➡️ All API endpoints require a logged-in user by default.
+    "DEFAULT_PERMISSION_CLASSES": [
+        "rest_framework.permissions.IsAuthenticated", # => Only authenticated users can access the API by default.
+    ],
+}
+
 
 MIDDLEWARE = [
     "django.middleware.security.SecurityMiddleware",
