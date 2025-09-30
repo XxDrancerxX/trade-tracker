@@ -3,6 +3,7 @@ from .models import SpotTrade, FuturesTrade
 from django.utils.timezone import localtime
 from datetime import timezone
 
+## ===>>>⚡ Notice: You don’t send user, id, or trade_time → they are filled automatically.(Post method) <<<==== ##
 
 #Defining a serializers for Our .Models using Django REST Framework (DRF):
 #First model
