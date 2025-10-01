@@ -13,7 +13,9 @@ https://docs.djangoproject.com/en/5.2/ref/settings/
 from pathlib import Path
 from dotenv import load_dotenv
 import os
-load_dotenv()
+
+BASE_DIR = Path(__file__).resolve().parent.parent
+load_dotenv(BASE_DIR / ".env") # Load environment variables from .env file
 
 
 #Globally installed API keys for testing endpoints in coinbase.
@@ -21,19 +23,26 @@ COINBASE_API_KEY = os.getenv("COINBASE_API_KEY")
 COINBASE_API_SECRET = os.getenv("COINBASE_API_SECRET")
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
-BASE_DIR = Path(__file__).resolve().parent.parent
+
 
 
 # Quick-start development settings - unsuitable for production
 # See https://docs.djangoproject.com/en/5.2/howto/deployment/checklist/
 
+
 # SECURITY WARNING: keep the secret key used in production secret!
-SECRET_KEY = "django-insecure-u!7@m7j6^po^8v+cf!$-13du#l$6j2wqlqjh9tvb*phsl@&c#n"
+SECRET_KEY = os.getenv("SECRET_KEY", "unsafe-dev-key")
+DEBUG = True
+ALLOWED_HOSTS = []
+
+
+if not DEBUG and SECRET_KEY == "unsafe-dev-key": # In production, ensure the secret key is set properly.
+    raise RuntimeError("SECRET_KEY is not set securely in production.") # Ensure you set a strong secret key in production environments.
+
 
 # SECURITY WARNING: don't run with debug turned on in production!
-DEBUG = True
 
-ALLOWED_HOSTS = []
+
 
 
 # Application definition
