@@ -1,7 +1,8 @@
 from rest_framework import serializers  
-from .models import SpotTrade, FuturesTrade
+from .models import SpotTrade, FuturesTrade, ExchangeCredential
 from django.utils.timezone import localtime
 from datetime import timezone
+from .services.crypto_vault import CryptoVault
 
 ## ===>>>⚡ Notice: You don’t send user, id, or trade_time → they are filled automatically.(Post method) <<<==== ##
 
@@ -79,3 +80,26 @@ class FuturesTradeSerializer(serializers.ModelSerializer):# => Converts our .mod
         if "side" in data and isinstance(data["side"], str): # => This method is called during deserialization, when converting incoming data (e.g., from a POST request) into a model instance. Here, we ensure that the 'side' field is always stored in uppercase.
             data["side"] = data["side"].upper()
         return super().to_internal_value(data)
+
+
+class ExchangeCredentialCreateSerializer(serializers.ModelSerializer):
+    api_key = serializers.CharField(write_only=True)
+    api_secret = serializers.CharField(write_only=True)
+    passphrase = serializers.CharField(write_only=True, required=False, allow_blank=True)
+
+    class Meta:
+        model = ExchangeCredential
+        fields = ["exchange", "label", "api_key", "api_secret", "passphrase", "can_trade", "can_transfer"]
+
+    def create(self, validated):
+        v = CryptoVault()
+        return ExchangeCredential.objects.create(
+            user=self.context["request"].user,
+            exchange=validated["exchange"],
+            label=validated.get("label","default"),
+            api_key_enc=v.enc(validated["api_key"]),
+            api_secret_enc=v.enc(validated["api_secret"]),
+            passphrase_enc=v.enc(validated.get("passphrase","")) if validated.get("passphrase") else None,
+            can_trade=validated.get("can_trade", True),
+            can_transfer=validated.get("can_transfer", False),
+        )

@@ -9,6 +9,9 @@ https://docs.djangoproject.com/en/5.2/topics/settings/
 For the full list of settings and their values, see
 https://docs.djangoproject.com/en/5.2/ref/settings/
 """
+# A set of best practices for deployable apps. Two relevant factors:
+# Config in the environment (not in code): secrets, flags, URLs.
+# Strict separation of code and config → same code can run in dev/CI/prod safely by changing env values
 
 from pathlib import Path
 from dotenv import load_dotenv
@@ -31,18 +34,32 @@ COINBASE_API_SECRET = os.getenv("COINBASE_API_SECRET")
 
 
 # SECURITY WARNING: keep the secret key used in production secret!
+#Env vars are strings → normalize them.
 SECRET_KEY = os.getenv("SECRET_KEY", "unsafe-dev-key")
-DEBUG = True
-ALLOWED_HOSTS = []
+DEBUG = os.getenv("DEBUG", "True").lower() in {"1", "true", "yes"} # Default to True if not set, but should be False in production.
+ALLOWED_HOSTS = ["*"] if DEBUG else [] # In production, set this to your domain(s).
 
 
-if not DEBUG and SECRET_KEY == "unsafe-dev-key": # In production, ensure the secret key is set properly.
-    raise RuntimeError("SECRET_KEY is not set securely in production.") # Ensure you set a strong secret key in production environments.
+# Only enforce these in production:
+if not DEBUG:
+    SECURE_SSL_REDIRECT = True
+    SESSION_COOKIE_SECURE = True
+    CSRF_COOKIE_SECURE = True
+    SECURE_HSTS_SECONDS = 31536000
+    SECURE_HSTS_INCLUDE_SUBDOMAINS = True
+    SECURE_HSTS_PRELOAD = True
+
+# If you want CORS now, add django-cors-headers; otherwise remove CORS_ALLOWED_ORIGINS for now
 
 
 # SECURITY WARNING: don't run with debug turned on in production!
 
-
+SECURE_SSL_REDIRECT = True
+SESSION_COOKIE_SECURE = True
+CSRF_COOKIE_SECURE = True
+SECURE_HSTS_SECONDS = 31536000
+SECURE_HSTS_INCLUDE_SUBDOMAINS = True
+SECURE_HSTS_PRELOAD = True
 
 
 # Application definition
@@ -62,17 +79,16 @@ INSTALLED_APPS = [
 
 
 REST_FRAMEWORK = {
-    "DEFAULT_AUTHENTICATION_CLASSES": [
-        "rest_framework.authentication.BasicAuthentication",
-        "rest_framework.authentication.SessionAuthentication", # => Uses Django’s session framework for authentication.
-        # Later you can add JWT:
-        # "rest_framework_simplejwt.authentication.JWTAuthentication",
-    ],
-    #➡️ All API endpoints require a logged-in user by default.
-    "DEFAULT_PERMISSION_CLASSES": [
-        "rest_framework.permissions.IsAuthenticated", # => Only authenticated users can access the API by default.
-    ],
+  "DEFAULT_AUTHENTICATION_CLASSES": [
+    "rest_framework_simplejwt.authentication.JWTAuthentication",
+  ],
+  "DEFAULT_PERMISSION_CLASSES": [
+    "rest_framework.permissions.IsAuthenticated",
+  ],
+  "DEFAULT_THROTTLE_CLASSES": ["rest_framework.throttling.UserRateThrottle"],
+  "DEFAULT_THROTTLE_RATES": {"user": "120/min"},
 }
+CORS_ALLOWED_ORIGINS = ["https://your-frontend.example"] # Adjust this to your frontend's actual URL.
 
 
 MIDDLEWARE = [

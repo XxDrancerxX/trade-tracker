@@ -14,6 +14,20 @@ from django.utils import timezone
 # We set default=timezone.now for trade_time to automatically set it
 # to the current date and time when a new trade is created, unless specified otherwise.
 
+class ExchangeCredential(models.Model):
+    """
+    Stores per-user exchange credentials encrypted.
+    DO NOT store raw secrets; encrypt via CryptoVault.
+    """
+    user = models.ForeignKey(User, on_delete=models.CASCADE, related_name="exchange_creds")
+    exchange = models.CharField(max_length=32)  # "coinbase-exchange"
+    label = models.CharField(max_length=64, default="default")
+    api_key_enc = models.BinaryField()      # encrypted bytes
+    api_secret_enc = models.BinaryField()   # encrypted bytes
+    passphrase_enc = models.BinaryField(null=True, blank=True)
+    can_trade = models.BooleanField(default=True)
+    can_transfer = models.BooleanField(default=False)
+    created_at = models.DateTimeField(auto_now_add=True)
 
 class SpotTrade(models.Model):    
     def __str__(self):
@@ -60,3 +74,20 @@ class FuturesTrade(models.Model):
     currency = models.CharField(max_length=20)
     notes = models.TextField(blank=True, null=True)
 
+class TransferRequest(models.Model):
+    requester = models.ForeignKey(User, on_delete=models.CASCADE, related_name="transfer_requests")
+    cred = models.ForeignKey("api.ExchangeCredential", on_delete=models.CASCADE)
+    amount = models.DecimalField(max_digits=20, decimal_places=8)
+    currency = models.CharField(max_length=16)
+    to_address = models.CharField(max_length=128)
+    status = models.CharField(max_length=16, default="PENDING")  # PENDING/APPROVED/REJECTED/EXECUTED
+    created_at = models.DateTimeField(auto_now_add=True)
+    approved_by = models.ForeignKey(User, null=True, blank=True, on_delete=models.SET_NULL, related_name="approved_transfers")
+    approved_at = models.DateTimeField(null=True, blank=True)
+    idempotency_key = models.CharField(max_length=64, unique=True)
+
+class AuditLog(models.Model):
+    user = models.ForeignKey(User, on_delete=models.SET_NULL, null=True)
+    action = models.CharField(max_length=64)  # e.g., "TRANSFER_REQUEST", "APPROVE", "EXECUTE"
+    metadata = models.JSONField(default=dict)
+    created_at = models.DateTimeField(auto_now_add=True)

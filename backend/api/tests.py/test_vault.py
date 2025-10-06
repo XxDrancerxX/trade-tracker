@@ -1,4 +1,3 @@
-from django.test import TestCase
 
 # Create your tests here.
 
@@ -34,3 +33,11 @@ from django.test import TestCase
 # How: GitHub Actions / GitLab CI run pytest, lint, type checks inside a clean environment.
 
 # Rule: CI should only run deterministic tests (offline, reproducible). Not scripts that hit real APIs.
+
+from api.services.crypto_vault import CryptoVault
+
+def test_vault_roundtrip():
+    v = CryptoVault()
+    ct = v.enc("secret")
+    assert v.dec(ct) == "secret"
+
