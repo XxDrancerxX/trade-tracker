@@ -60,3 +60,23 @@ class CoinbaseExchangeAdapter:
         if status:
             params["status"] = status
         return self._get_private("/orders", params)
+    
+    def fills(self, limit: int | None = None, product_id: str | None = None):
+        """
+        GET /fills (private) – list your recent fills
+        Supports query params 'limit' and 'product_id'.
+        """
+        path = "/fills"
+        params = {}
+        if limit is not None:
+            params["limit"] = int(limit)
+        if product_id:
+            params["product_id"] = product_id
+
+        query = f"?{urlencode(params)}" if params else ""
+        url = f"{self.base_url}{path}{query}"
+
+        headers = self._auth_headers("GET", path, query)
+        r = requests.get(url, headers=headers, timeout=15)
+        r.raise_for_status()
+        return r.json()
