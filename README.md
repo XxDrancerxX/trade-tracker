@@ -128,3 +128,11 @@ You should run these commands any time you:
 - Pull new changes that affect models
 - Change or add models
 - Set up the project in a new environment
+
+### Commands:
+python manage.py check:
+Runs Django’s system check framework. It validates settings and common mistakes without touching the DB or running migrations.
+
+pytest -q:
+Runs your tests in quiet mode (less noise; still fails fast on errors).
+Keeping those comments in YAML is fine—comments don’t affect execution.
