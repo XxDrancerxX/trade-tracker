@@ -1,5 +1,9 @@
 ## Backend Setup: Using Python Virtual Environments (.venv)
 
+👉 See detailed developer notes in [noteBookProject.md](./noteBookProject.md)
+👉 In plain editor mode, Ctrl+Click (or Cmd+Click on Mac) should open the file.
+👉 In Markdown Preview (Ctrl+Shift+V), clicking the link opens the file inside VS Code too.
+
 To keep backend dependencies isolated and avoid conflicts with other projects or the frontend, use a Python virtual environment (.venv):
 
 1. **Create a virtual environment** (inside the `backend` folder):
