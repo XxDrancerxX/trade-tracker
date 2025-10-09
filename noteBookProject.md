@@ -186,3 +186,50 @@ This restores everything exactly as before.
 - Each package or app (e.g. `api/`, `core/`, `exchanges/`) gets its own `__pycache__/` when code from that folder is used.  
 - Safe to **delete at any time** — Python will recreate them automatically.  
 - They are usually added to `.gitignore` to avoid committing unnecessary generated files.
+
+## 🧠 MCP Server – Coinbase Docs Integration (VS Code)
+
+### ✅ What We Did
+- Set up **Coinbase Docs MCP Server** inside VS Code so we can query official API documentation directly from the chat sidebar.
+- This allows quick searches like “Search for `trade API` in Coinbase docs” without leaving the editor.
+
+### ⚡ Quick Setup Summary
+1. Open VS Code and install an MCP-compatible extension (e.g. GitHub Copilot Chat).
+2. Create or edit the MCP config file at:
+
+~/.vscode-remote/data/User/mcp.json
+
+3. Add the Coinbase server:
+
+```json
+{
+  "servers": {
+    "coinbase-docs": {
+      "type": "sse",
+      "url": "https://docs.cdp.coinbase.com/mcp"
+    }
+  },
+  "inputs": []
+}
+```
+ 
+4. Save the file — the Output panel should show:
+
+[info] Connection state: Running
+[info] Discovered 1 tools
+
+
+5. In the VS Code Chat panel, try:
+
+Search for "trade API" in Coinbase docs.
+✅ You should see relevant documentation links appear.
+
+## 📝 Notes:
+
+URL: Must use https://docs.cdp.coinbase.com/mcp (❌ not /server or /sse).
+
+Server Type: sse is correct.
+
+If stuck on initialize, use Restart Server from the inline controls in mcp.json.
+
+You can add multiple MCP servers (e.g. internal docs, other APIs) to the same file.
