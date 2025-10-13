@@ -172,18 +172,20 @@ class CoinbaseExchangeAdapter:  # handle authentication for Coinbase API request
     # Requires authentication
     # Docs: https://docs.cloud.coinbase.com/exchange/reference/exchangerestapi_getfills
 
-    def fills(self, limit: int | None = None, product_id: str | None = None):
+    def fills(self, limit: int | None = None, product_id: str | None = None, order_id: str | None = None):
         # limit: Optional limit on number of results to return. controls how many items; product_id filters by symbol.
         # product_id: Optional filter by product (e.g., "BTC-USD").
+        # order_id: Optional filter by order ID.
         path = "/fills" # API endpoint path
-        params = {} 
-        if limit is not None: #if limit is given (not None), add it to params
-            params["limit"] = int(limit) # Convert limit to int (Coinbase expects an integer)
+        params = {}
+        if limit is not None:
+            params["limit"] = int(limit)
         if product_id:
             params["product_id"] = product_id
-        query = f"?{urlencode(params)}" if params else "" # Build query string with urlencode() if params exist.
+        if order_id:
+            params["order_id"] = order_id
+        query = f"?{urlencode(params)}" if params else ""
         url = f"{self.base_url}{path}{query}"
-        # Reuse the same signing logic as everything else
         headers = self._sign_headers("GET", path, query)
         r = requests.get(url, headers=headers, timeout=15)
         r.raise_for_status()
