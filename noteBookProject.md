@@ -233,3 +233,98 @@ Server Type: sse is correct.
 If stuck on initialize, use Restart Server from the inline controls in mcp.json.
 
 You can add multiple MCP servers (e.g. internal docs, other APIs) to the same file.
+
+
+
+## 🔌 CoinbaseExchangeAdapter — quick notes
+
+- Purpose: One-stop adapter for Coinbase Exchange REST API (sandbox by default), handling auth, headers, and convenient endpoints.
+
+- Source: `backend/api/exchanges/coinbase_exchange.py`
+
+- Config and creds:
+  - Base URL: `EX_BASE_URL` (default: https://api-public.sandbox.exchange.coinbase.com), trimmed to avoid trailing `/`.
+  - Auth env vars: `EX_API_KEY_READ`, `EX_API_SECRET_READ` (base64), `EX_API_PASSPHRASE_READ`.
+  - Note: `CryptoVault` is imported but not used here; creds come from env.
+
+- Auth/signing (private endpoints):
+  - `_sign_headers(method, path, query="", body="")` builds `prehash = timestamp + METHOD + path + query + body`.
+  - HMAC-SHA256 with base64-decoded secret → base64 signature.
+  - Sends headers: `CB-ACCESS-KEY`, `CB-ACCESS-SIGN`, `CB-ACCESS-TIMESTAMP`, `CB-ACCESS-PASSPHRASE`.
+  - `_headers()` adds `Content-Type`/`Accept` and wraps `_sign_headers`.
+  - Requests use 15s timeout and `raise_for_status()` on errors.
+
+- HTTP helpers:
+  - `_get_public(path, params=None)`: GET without auth.
+  - `_get_private(path, params=None)`: GET with signed headers.
+
+- Endpoints exposed:
+  - Public
+    - `products()` → GET `/products`
+    - `product_ticker(product_id)` → GET `/products/{id}/ticker`
+  - Private
+    - `accounts()` → GET `/accounts`
+    - `order_list(limit=50, status=None)` → GET `/orders` (supports `status`)
+    - `fills(limit=None, product_id=None, order_id=None)` → GET `/fills`
+      - Coinbase requires either `order_id` OR `product_id`.
+      - Supports `limit` and product/order filtering.
+
+- Implementation notes:
+  - Uses `urllib.parse.urlencode` to build query strings.
+  - For signing, path and query are kept separate; request path is split at `?`.
+  - `fills()` signs using the same `_sign_headers` logic and passes query.
+
+- Common pitfalls:
+  - `400 Bad Request` on `/fills` if neither `product_id` nor `order_id` is provided.
+  - Sandbox keys and base URL are separate from production.
+  - If private calls look empty, confirm key permissions and portfolio match.
+
+- CLI examples (Django `cb`):
+  - Products: `python manage.py cb products`
+  - Ticker: `python manage.py cb ticker --product BTC-USD`
+  - Accounts: `python manage.py cb accounts`
+  - Orders: `python manage.py cb orders`
+  - Fills: `python manage.py cb fills --product_id BTC-USD` or `--order_id <uuid>`; `--limit 10` to cap results
+
+  ---
+
+## 🛠 Django Management Command `cb` — quick notes
+
+- Source: `backend/api/management/commands/cb.py`
+- Purpose: Developer/debug CLI to hit Coinbase adapter endpoints and pretty-print JSON (no view/URL layer needed).
+- Subcommand architecture:
+  - Uses `parser.add_subparsers(dest="action", required=True)` so exactly one action must be chosen.
+  - Registered subcommands: `products`, `accounts`, `ticker`, `orders`, `fills`.
+  - Each subcommand gets its own arguments (e.g. `ticker --product`, `fills --product_id/--order_id/--limit`).
+- Flow on execution (`python manage.py cb <action> [flags]`):
+  1. Django loads `Command` class (name of file = command name: `cb.py` → `cb`).
+  2. `add_arguments` defines subparsers and options.
+  3. `handle()` receives parsed options in `opts` (e.g. `{"action": "fills", "product_id": "BTC-USD"}`).
+  4. Instantiates `CoinbaseExchangeAdapter` and dispatches based on `action`.
+  5. Validates creds for private calls (`accounts`, `orders`, `fills`).
+  6. Serializes result with `json.dumps(..., indent=2, sort_keys=True)` to stdout.
+- Error handling:
+  - Wraps execution in try/except; any exception raised → re-raised as `CommandError` (prints clean error message + non‑zero exit code).
+  - Explicit credential checks before private endpoints give clear messages instead of opaque 401s.
+- Private vs Public:
+  - Public: `products`, `ticker` (no key requirement).
+  - Private: `accounts`, `orders`, `fills` (HMAC headers required).
+- Extending pattern:
+  - Add new endpoint: define `p_new = sub.add_parser("something")` in `add_arguments`; add flags via `p_new.add_argument(...)`; implement `elif action == "something": data = c.some_method(...)` in `handle()`.
+  - Keep output JSON-only for easy piping: `python manage.py cb orders | jq '. | length'`.
+- Typical usage snippets:
+  - List products: `python manage.py cb products`
+  - Ticker for ETH: `python manage.py cb ticker --product ETH-USD`
+  - Accounts (needs env creds): `python manage.py cb accounts`
+  - Open/filled orders: `python manage.py cb orders`
+  - Recent fills for product: `python manage.py cb fills --product_id BTC-USD --limit 5`
+  - Fills by order id: `python manage.py cb fills --order_id <uuid>`
+- Gotchas:
+  - Running from wrong directory → `manage.py` not found (must be in `backend/`).
+  - `/fills` 400 if neither `product_id` nor `order_id` passed.
+  - Placeholder `<your_order_id>` must be replaced with a real UUID (shell interprets `< >`).
+  - Missing creds triggers early `CommandError` instead of HTTP failure.
+- Rationale:
+  - Faster iteration loop than building API views.
+  - Encourages separation of transport (CLI) from adapter logic.
+

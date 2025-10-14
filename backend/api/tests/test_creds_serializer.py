@@ -19,12 +19,12 @@ from api.services.crypto_vault import CryptoVault
 @pytest.mark.django_db # Tells pytest this test will touch the database (create rows, query, save, create user, save model, etc.).
 # Without it, any DB access raises: RuntimeError: Database access not allowed, use the "django_db" mark...
 def test_cred_serializer_encrypts():
-    user = User.objects.create_user("u", "u@x.com", "p")  # Create a test user in the DB.
-    factory = APIRequestFactory()  # DRF helper to create a mock request object for serializer context.
-    req = factory.post("/", {})
-    req.user = user
+    user = User.objects.create_user("u", "u@x.com", "p")  # Create a test user in the DB. ==>> (username, email, password) <<==
+    factory = APIRequestFactory()  # DRF helper to create a mock HTTP request without running a server.
+    req = factory.post("/", {}) # Create a mock POST request to "/" with an empty body ({}). Path doesn't matter here since we are not sending it to a view. we are just testing the serializer.
+    req.user = user # Attach the test user to the request, simulating an authenticated request.
 
-    ser = ExchangeCredentialCreateSerializer(
+    ser = ExchangeCredentialCreateSerializer( # Instantiate our serializer with test input data.
         data={
             "exchange": "coinbase-exchange",
             "label": "default",
@@ -32,10 +32,15 @@ def test_cred_serializer_encrypts():
             "api_secret": "S",
             "passphrase": "P",
         },
-        context={"request": req},
+        context={"request": req} # Serializers can access the request via self.context["request"] if needed (e.g., to get the current user).
     )
-    assert ser.is_valid(), ser.errors
-    obj = ser.save()
+    
+
+    # In tests, assert stops the test and shows the errors if validation fails
+    assert ser.is_valid(), ser.errors # Validate the input data. If invalid, print errors.DRF decides between create() or update().
+    # For creates, it calls our serializer’s create(self, validated_data).
+    # This validated_data is where our "ser" variable goes and it goeas as parameter(validated) in our create method in serializer.
+    obj = ser.save() # Calls the serializer's create() method, which encrypts the secrets and saves the ExchangeCredential instance to the DB.
 
     # encrypted fields are bytes and not equal to plaintext
     assert isinstance(obj.api_key_enc, (bytes, bytearray))

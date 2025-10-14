@@ -5,6 +5,8 @@ from datetime import timezone
 from .services.crypto_vault import CryptoVault
 
 ## ===>>>⚡ Notice: You don’t send user, id, or trade_time → they are filled automatically.(Post method) <<<==== ##
+#Django REST Framework (DRF) serializer.
+# It’s designed to validate and transform input data (usually from an API request) into a model instance.
 
 #Defining a serializers for Our .Models using Django REST Framework (DRF):
 #First model
@@ -82,7 +84,9 @@ class FuturesTradeSerializer(serializers.ModelSerializer):# => Converts our .mod
         return super().to_internal_value(data)
 
 
-class ExchangeCredentialCreateSerializer(serializers.ModelSerializer):
+class ExchangeCredentialCreateSerializer(serializers.ModelSerializer):#ModelSerializer auto-generates fields for model fields in Meta.fields (exchange, label, can_trade, can_transfer).
+    # three extra fields added for input only (write_only=True) - not stored directly in the model
+    # These are the “explicitly declared fields.”
     api_key = serializers.CharField(write_only=True)
     api_secret = serializers.CharField(write_only=True)
     passphrase = serializers.CharField(write_only=True, required=False, allow_blank=True)

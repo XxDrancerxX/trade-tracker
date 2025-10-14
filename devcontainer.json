@@ -1,0 +1,11 @@
+{
+  "name": "Trade Tracker Dev Container",
+  "customizations": {
+    "vscode": {
+      "extensions": [
+        "microsoft.vscode-mcp"
+      ]
+    }
+  },
+  "postCreateCommand": "echo 'MCP will auto-start if autoStart is true in mcp.json'"
+}
