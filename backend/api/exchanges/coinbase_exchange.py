@@ -112,7 +112,7 @@ class CoinbaseExchangeAdapter:  # handle authentication for Coinbase API request
         rp = f"{path}?{qs}" if qs else path #
         r = requests.get(self.base_url + rp, timeout=15) # Send a  GET request to the full URL (base_url + path + query).timeout=15: gives the request up to 15 seconds (for connect+read) before raising requests.Timeout
         r.raise_for_status() # Raise an error if the request failed (4xx or 5xx status code). raise_for_status() will throw an exception if the response indicates an error, which helps catch issues early.
-        return r.json()
+        return r.json()  
     
     #------------------------------------------------------------------------------------------------------------------------------
 

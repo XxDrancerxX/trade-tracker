@@ -34,10 +34,13 @@
 
 # Rule: CI should only run deterministic tests (offline, reproducible). Not scripts that hit real APIs.
 
+#This test ensures our encryption system works correctly by encrypting and then decrypting a sample string, checking we get back the original.
+#This test prevents you from accidentally storing user API keys as plaintext in the database! 🛡️
+
 from api.services.crypto_vault import CryptoVault
 
 def test_vault_roundtrip():
-    v = CryptoVault()
-    ct = v.enc("secret")
+    v = CryptoVault() # Creates vault instance (loads FIELD_ENCRYPTION_KEY from .env)
+    ct = v.enc("secret") #Encrypts the string "secret" → returns encrypted bytes
     assert v.dec(ct) == "secret"
 

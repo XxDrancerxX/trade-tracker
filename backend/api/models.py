@@ -14,15 +14,15 @@ from django.utils import timezone
 # We set default=timezone.now for trade_time to automatically set it
 # to the current date and time when a new trade is created, unless specified otherwise.
 
-class ExchangeCredential(models.Model):
+class ExchangeCredential(models.Model):#Secure place to store each user’s encrypted API key/secret/passphrase (*_enc bytes). One row per connected exchange account.
     """
     Stores per-user exchange credentials encrypted.
     DO NOT store raw secrets; encrypt via CryptoVault.
     """
     user = models.ForeignKey(User, on_delete=models.CASCADE, related_name="exchange_creds")
     exchange = models.CharField(max_length=32)  # "coinbase-exchange"
-    label = models.CharField(max_length=64, default="default")
-    api_key_enc = models.BinaryField()      # encrypted bytes
+    label = models.CharField(max_length=64, default="default") # A user can have multiple credentials per exchange, labeled (e.g., "default", "secondary").
+    api_key_enc = models.BinaryField()      # encrypted bytes 
     api_secret_enc = models.BinaryField()   # encrypted bytes
     passphrase_enc = models.BinaryField(null=True, blank=True)
     can_trade = models.BooleanField(default=True)

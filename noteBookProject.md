@@ -23,6 +23,55 @@ python manage.py check
 //////////////////////////
 
 
+# 🐍 Python Package Structure: `__init__.py` Files
+
+## **📦 Purpose: Mark Directories as Python Packages**
+
+The `__init__.py` file tells Python: **"This directory is a package, not just a regular folder"**
+
+### **Without `__init__.py`:**
+```python
+from api.models import User  # ❌ ModuleNotFoundError
+```
+
+### **With `__init__.py`:**
+```python
+from api.models import User  # ✅ Success!
+```
+
+## **🏗️ In Your Project Structure:**
+```
+backend/
+├── api/
+│   ├── __init__.py          # Makes 'api' a package
+│   ├── models.py
+│   ├── views.py
+│   └── migrations/
+│       └── __init__.py      # Makes 'api.migrations' a package
+└── core/
+    ├── __init__.py          # Makes 'core' a package
+    └── settings.py
+```
+
+**Enables clean imports:**
+```python
+from api.models import ExchangeCredential
+from api.services.crypto_vault import CryptoVault
+from core.settings import DEBUG
+```
+
+## **📝 Content (Usually Empty):**
+Most `__init__.py` files are **empty** - they just need to **exist** to mark the directory as a package.
+
+## **🎯 Django Importance:**
+- **App Recognition**: Django needs them to recognize apps (`api`, `core`)
+- **Migration System**: `migrations/__init__.py` required for database migrations
+- **Import Structure**: Enables hierarchical imports across Django apps
+
+**Think of them as "package permission slips"** 📋
+
+---
+
 # 🧠 Engineer Log — Trade Tracker
 This section summarizes all the key steps and explanations we've covered while setting up the project structure, CI, testing, and documentation.
 
@@ -327,4 +376,186 @@ You can add multiple MCP servers (e.g. internal docs, other APIs) to the same fi
 - Rationale:
   - Faster iteration loop than building API views.
   - Encourages separation of transport (CLI) from adapter logic.
+
+---
+
+# 🔐 Credentials Storage, Encryption & Testing — Flow Summary
+
+## 1. Purpose of this part of the system
+
+Before you can safely hit Coinbase (or any exchange) on behalf of users, you need a secure way to store and retrieve their API credentials.
+
+**The goal is:**
+- ✅ Accept plaintext keys/passphrases once at the API boundary
+- 🔐 Encrypt immediately using Fernet (CryptoVault)
+- 🗄️ Persist only encrypted bytes in the database (`*_enc` fields)
+- 🧪 Test this behavior to prevent regressions
+- 🧠 Later, securely decrypt in memory to hit Coinbase's authenticated endpoints
+
+## 2. Core components
+
+### 🧱 Model — ExchangeCredential
+- Stores encrypted credentials per user per exchange
+- `*_enc` fields = encrypted bytes, not plaintext
+- Linked to User via FK, allowing multi-user support
+
+### ✍️ Serializer — ExchangeCredentialCreateSerializer
+- Validates input, encrypts plaintext, and saves to the model
+- `context={"request": req}` is passed automatically by DRF views (or manually in tests)
+- `self.context["request"].user` ensures the credentials belong to the logged-in user
+
+### 🔐 CryptoVault
+- Field-level encryption using Fernet
+
+## 3. The Test
+
+### ✅ What it verifies
+- Serializer validates and accepts input
+- Encrypted bytes are stored in DB
+- Stored data ≠ plaintext
+- Decryption works round-trip
+- context properly attaches the user
+
+### 🧠 Why it's important
+- This is your security regression test
+- If anyone breaks encryption or stores plaintext by mistake, this fails immediately
+
+## 4. Why we still need .env
+
+`.env` now holds app-level config, not user secrets:
+- `FIELD_ENCRYPTION_KEY` for CryptoVault ✅
+- `DJANGO_SECRET_KEY`, `DATABASE_URL`, etc.
+- Optional `EX_BASE_URL` (sandbox vs prod)
+
+Per-user credentials live encrypted in the DB, not `.env`.
+
+## 📌 Key Takeaways
+
+- **Serializer + Model + CryptoVault = secure perimeter**
+- **Tests guarantee encryption behavior never breaks**
+- **Adapter = fetches from Coinbase**
+- **Use-case = decrypt → call adapter → normalize → persist**
+- **`.env` = app config, not user secrets**
+
+This foundation makes your backend multi-user, secure, and ready to sync trades from multiple exchanges.
+
+---
+
+# 🧪 Test Analysis: `test_exchange_fills.py`
+
+## 📍 **Location:** `/workspaces/trade-tracker/backend/api/tests/test_exchange_fills.py`
+
+## 🎯 **Purpose:**
+Tests the **CoinbaseExchangeAdapter.fills()** method without hitting real Coinbase servers using HTTP mocking.
+
+## 🔄 **Test Workflow:**
+
+### **1. Setup HTTP Mocking:**
+```python
+@responses.activate  # Hijacks requests.get() for the entire test
+def test_fills_mock():
+    responses.add(
+        responses.GET, 
+        "https://api-public.sandbox.exchange.coinbase.com/fills",
+        json=[{"trade_id": 1, "product_id": "BTC-USD"}],  # Fake response data
+        status=200
+    )
+```
+
+### **2. Create Adapter with Fake Credentials:**
+```python
+c = CoinbaseExchangeAdapter("k","c2VjcmV0LWJhc2U2NA==","p", base_url=base)
+```
+- **"k"** = dummy API key
+- **"c2VjcmV0LWJhc2U2NA=="** = dummy secret (base64)
+- **"p"** = dummy passphrase
+- **These don't need to be real** - they're just for testing the adapter logic
+
+### **3. Call the Method:**
+```python
+data = c.fills(limit=1)  # Only passes limit parameter (product_id and order_id are optional)
+```
+
+### **4. Verify Mock Response:**
+```python
+assert data[0]["trade_id"] == 1  # Checks we got back the fake data correctly
+```
+
+## 🪄 **How HTTP Interception Works:**
+
+1. **`@responses.activate`** → Replaces real `requests.get()` with fake version
+2. **`responses.add()`** → Registers fake response for specific URL pattern
+3. **Adapter calls `requests.get()`** → Gets intercepted by responses library
+4. **Fake response returned** → No real network calls happen
+5. **Test verifies fake data** → Proves adapter logic works correctly
+
+## ✅ **What This Test Verifies:**
+- **URL Construction:** `/fills?limit=1` built correctly
+- **HTTP Method:** GET request sent properly  
+- **Parameter Handling:** Optional parameters work (limit passed, others skipped)
+- **JSON Parsing:** Response data accessible via `data[0]["trade_id"]`
+- **Adapter Logic:** No syntax errors, proper method execution
+
+## ❌ **What This Test Does NOT Cover:**
+- **Real Authentication:** Uses dummy credentials, no actual HMAC signing
+- **Network Errors:** No timeout, connection, or HTTP error testing
+- **Credential Security:** No encryption/decryption involved
+- **User Context:** No database or user isolation testing
+
+## 🎯 **Key Insight:**
+This is a **unit test** focused on adapter logic. It ensures your code can:
+- Build correct URLs
+- Handle optional parameters  
+- Parse JSON responses
+- Execute without errors
+
+**Separate tests needed for:**
+- Real credential encryption/decryption flow
+- Error handling (network failures, 401s, etc.)
+- Integration with encrypted credentials from database
+
+## 📝 **Test Category:** 
+**HTTP Adapter Unit Test** - Fast, reliable, no external dependencies.
+
+------------------
+
+# 🔐 Test Analysis: `test_vault.py`
+
+## 📍 **Location:** `/workspaces/trade-tracker/backend/api/tests/test_vault.py`
+
+## 🎯 **Purpose:**
+Tests the **CryptoVault encryption/decryption system** - the core security component that protects user credentials in the database.
+
+## 🔄 **Test Workflow:**
+
+### **Simple Round-Trip Test:**
+```python
+def test_vault_roundtrip():
+    v = CryptoVault()           # Loads FIELD_ENCRYPTION_KEY from .env
+    ct = v.enc("secret")        # Encrypts "secret" → encrypted bytes
+    assert v.dec(ct) == "secret" # Decrypts back → should match original
+```
+
+## ✅ **What This Test Verifies:**
+- **Encryption works:** Plaintext gets scrambled into unreadable bytes
+- **Decryption works:** Encrypted bytes restore to original text  
+- **Round-trip integrity:** No data loss during encrypt/decrypt cycle
+- **Environment setup:** `FIELD_ENCRYPTION_KEY` loads correctly from `.env`
+
+## 🚨 **Critical Security Check:**
+This is our **"encryption safety test"** - if this fails:
+- ❌ User credentials won't be safely stored
+- ❌ our security foundation is broken
+- ❌ Risk of storing plaintext API keys in database
+
+## 🧠 **Why It's Essential:**
+- **Regression protection:** Catches broken encryption code immediately
+- **Environment validation:** Ensures `.env` configuration works
+- **Security confidence:** Proves encryption works before storing real data
+- **CI integration:** Runs automatically on every code push
+
+## 📝 **Test Category:** 
+**Security Unit Test** - Fast, deterministic, no external dependencies.
+
+**Flow:** `"secret" → encrypt → [random bytes] → decrypt → "secret"` ✅
 

@@ -5,7 +5,7 @@ from cryptography.fernet import Fernet
 # Keep the key secret and safe. Store it in an environment variable or a secure vault.
 # You can generate a key with: Fernet.generate_key()        
 
-class CryptoVault:
+class CryptoVault:#Used by the serializer on write, and later by use-cases on read.
     """Field-level encryption using Fernet. Keep FIELD_ENCRYPTION_KEY in env."""
     def __init__(self, key: bytes | None = None):
         key = key or os.getenv("FIELD_ENCRYPTION_KEY", "").encode()
@@ -15,6 +15,12 @@ class CryptoVault:
 
     def enc(self, plaintext: str) -> bytes:
         return self._fernet.encrypt(plaintext.encode())
-
-    def dec(self, ciphertext: bytes) -> str:
+   
+    def dec(self, ciphertext: bytes) -> str:     
+        # Accept either bytes (preferred) or str token for convenience
+        if isinstance(ciphertext, str):
+            ciphertext = ciphertext.encode()
+        # Decrypt first (returns bytes), then decode to utf-8 string
         return self._fernet.decrypt(ciphertext).decode()
+
+

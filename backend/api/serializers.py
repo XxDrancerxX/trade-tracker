@@ -87,6 +87,11 @@ class FuturesTradeSerializer(serializers.ModelSerializer):# => Converts our .mod
 class ExchangeCredentialCreateSerializer(serializers.ModelSerializer):#ModelSerializer auto-generates fields for model fields in Meta.fields (exchange, label, can_trade, can_transfer).
     # three extra fields added for input only (write_only=True) - not stored directly in the model
     # These are the “explicitly declared fields.”
+    """
+    Accepts plaintext once at the boundary, encrypts immediately with CryptoVault,
+    saves to *_enc. Attaches the row to request.user. Never returns plaintext.
+    """
+
     api_key = serializers.CharField(write_only=True)
     api_secret = serializers.CharField(write_only=True)
     passphrase = serializers.CharField(write_only=True, required=False, allow_blank=True)
