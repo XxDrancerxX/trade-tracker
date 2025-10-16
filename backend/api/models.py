@@ -31,6 +31,7 @@ class ExchangeCredential(models.Model):#Secure place to store each user’s encr
     Each entry stores the exchange name (e.g., "coinbase-exchange"), a label (e.g., "default"), and the encrypted API key/secret/passphrase.
     DO NOT store raw secrets; encrypt via CryptoVault.
     """
+    #If you don't see null=True or blank=True, the field is required.
 
     user = models.ForeignKey(User, on_delete=models.CASCADE, related_name="exchange_creds") # Links each ExchangeCredential to a specific User
     # The user field establishes a many-to-one relationship with the User model. This means each user can have multiple exchange credentials, but each credential belongs to one user.
@@ -39,26 +40,29 @@ class ExchangeCredential(models.Model):#Secure place to store each user’s encr
     exchange = models.CharField(max_length=32)  # Stores which exchange this credential is for (e.g., "coinbase-exchange", "binance", etc.). max_length=32 limits the length to 32 characters.
     # models.CharField is used for short text fields, it requires max_length to work. This field is required (no null=True or blank=True), so every ExchangeCredential must specify an exchange.
     # This field does not have a default value, so it must be provided when creating a new ExchangeCredential.
-    label = models.CharField(max_length=64, default="default") # A user can have multiple credentials per exchange, labeled (e.g., "default", "secondary").
-    api_key_enc = models.BinaryField()      # encrypted bytes 
+    label = models.CharField(max_length=64, default="default") # A user can have multiple credentials per exchange, if no label is provided when creating an instance, Django will set the attribute to "default".
+    api_key_enc = models.BinaryField()      # encrypted bytes stores raw binary data.
     api_secret_enc = models.BinaryField()   # encrypted bytes
-    passphrase_enc = models.BinaryField(null=True, blank=True)
-    can_trade = models.BooleanField(default=True)
-    can_transfer = models.BooleanField(default=False)
-    created_at = models.DateTimeField(auto_now_add=True)
+    passphrase_enc = models.BinaryField(null=True, blank=True) # encrypted bytes, some exchanges (like Coinbase Pro) require a passphrase in addition to API key/secret.
+    can_trade = models.BooleanField(default=True) # Allow this credential to place/modify/cancel orders and run reads.
+    can_transfer = models.BooleanField(default=False) #allow this credential to withdraw/transfer funds (on-chain or to another account).
+    created_at = models.DateTimeField(auto_now_add=True) # Automatically set the field to now when the object is first created. Useful for tracking when the credential was added.
 
 
 class SpotTrade(models.Model):    
     def __str__(self):
         return f"{self.user.username} - {self.symbol} = {self.side} - @ {self.price}"
     
-    symbol = models.CharField(max_length=10)
-    price = models.DecimalField(max_digits=10,decimal_places=2)
+    symbol = models.CharField(max_length=10) # stores the trade instrument/ticker (e.g., "BTCUSD", "ETH", "BTC-USD") for each SpotTrade.
+    price = models.DecimalField(max_digits=10,decimal_places=2) # => This field stores the price at which the trade was executed. DecimalField is used for precise decimal numbers, which is important for financial data.
+    # max_digits=10 means the number can have up to 10 digits in total, and decimal_places=2 means 2 of those digits can be after the decimal point.
     amount = models.DecimalField(max_digits=20,decimal_places=8)
-    trade_time = models.DateTimeField(default=timezone.now, db_index=True)   # => db_index=True creates a database index on this field, which speeds up queries that filter or sort by trade_time.
+    trade_time = models.DateTimeField(default=timezone.now, db_index=True)   # DateTimefiled creates a date/time column in the database.
+    # => This field records the exact date and time when the trade occurred. We set default=timezone.now to automatically use the current date and time if none is provided.
+    # db_index=True creates a database index on this field, which speeds up queries that filter or sort by trade_time
     user = models.ForeignKey(User, on_delete=models.CASCADE) # => This creates a relationship between the SpotTrade and User models. Each trade is linked to a specific user. If the user is deleted, all their trades will also be deleted (cascade delete).
     created_at = models.DateTimeField(auto_now_add=True) # => This field automatically records the date and time when a trade is created. It’s set once when the object is first created and never changes.
-    SIDE_CHOICES = [
+    SIDE_CHOICES = [ # This defines the possible choices for the side field.
     ("BUY", "Buy"),
     ("SELL", "Sell"),
     ] 
