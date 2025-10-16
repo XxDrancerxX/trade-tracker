@@ -1,26 +1,44 @@
-from django.db import models
-from django.contrib.auth.models import User
-from django.utils import timezone
-
+from django.db import models # Import the models module from django.db, which provides the base class and field types for defining database models.
+from django.contrib.auth.models import User # Import the built-in User model from Django's authentication system.
+from django.utils import timezone # Import timezone utilities to handle date and time fields correctly with timezone awareness.
+#------------------------------------------------------------------------------------------------------------------------------
 # Create your models here.
 #Super user:
 # superuser
 # super@user.com
 # 123456
-
+#------------------------------------------------------------------------------------------------------------------------------#For the fields trade_time and created_at, we use DateTimeField to store date and time information.
 
 #For the fields trade_time and created_at, we use DateTimeField to store date and time information.
 # trade_time records when the trade actually happened, while created_at automatically records when the trade entry was created in the database.
 # We set default=timezone.now for trade_time to automatically set it
 # to the current date and time when a new trade is created, unless specified otherwise.
+#------------------------------------------------------------------------------------------------------------------------------
+
+#We put models.Model in each model to tell Django that these classes are database models.
+#The classes models inherits everything from models.Model.
+# This gives us all the built-in functionality to create, read, update, and delete records in the database.
+# Each class variable (like symbol, price, amount) defines a database column with a specific type and constraints.
+# For example, CharField is for short text, DecimalField is for precise decimal numbers,
+# ForeignKey creates a relationship to another model (like User), and DateTimeField is for date/time values.
+#This is what basically transforms classes into database tables with rows and columns.
+#===============================================================================================================================
 
 class ExchangeCredential(models.Model):#Secure place to store each user’s encrypted API key/secret/passphrase (*_enc bytes). One row per connected exchange account.
     """
-    Stores per-user exchange credentials encrypted.
+    Stores per-user exchange credentials encrypted.so the user can connect to exchanges via our app and many others activities.
+    Each user can have multiple ExchangeCredential entries (e.g., one for Coinbase, one for Binance).
+    Each entry stores the exchange name (e.g., "coinbase-exchange"), a label (e.g., "default"), and the encrypted API key/secret/passphrase.
     DO NOT store raw secrets; encrypt via CryptoVault.
     """
-    user = models.ForeignKey(User, on_delete=models.CASCADE, related_name="exchange_creds")
-    exchange = models.CharField(max_length=32)  # "coinbase-exchange"
+
+    user = models.ForeignKey(User, on_delete=models.CASCADE, related_name="exchange_creds") # Links each ExchangeCredential to a specific User
+    # The user field establishes a many-to-one relationship with the User model. This means each user can have multiple exchange credentials, but each credential belongs to one user.
+    # The on_delete=models.CASCADE argument ensures that if a user is deleted, all their associated exchange credentials are also deleted.
+    # The related_name="exchange_creds" argument allows us to access a user's exchange credentials using user.exchange_creds.all().
+    exchange = models.CharField(max_length=32)  # Stores which exchange this credential is for (e.g., "coinbase-exchange", "binance", etc.). max_length=32 limits the length to 32 characters.
+    # models.CharField is used for short text fields, it requires max_length to work. This field is required (no null=True or blank=True), so every ExchangeCredential must specify an exchange.
+    # This field does not have a default value, so it must be provided when creating a new ExchangeCredential.
     label = models.CharField(max_length=64, default="default") # A user can have multiple credentials per exchange, labeled (e.g., "default", "secondary").
     api_key_enc = models.BinaryField()      # encrypted bytes 
     api_secret_enc = models.BinaryField()   # encrypted bytes
@@ -28,6 +46,7 @@ class ExchangeCredential(models.Model):#Secure place to store each user’s encr
     can_trade = models.BooleanField(default=True)
     can_transfer = models.BooleanField(default=False)
     created_at = models.DateTimeField(auto_now_add=True)
+
 
 class SpotTrade(models.Model):    
     def __str__(self):
