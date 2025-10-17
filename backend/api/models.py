@@ -66,7 +66,6 @@ class SpotTrade(models.Model):
     ("BUY", "Buy"),
     ("SELL", "Sell"),
     ] 
-
     side = models.CharField(max_length=4, choices=SIDE_CHOICES)
     exchange = models.CharField(max_length=20)
     currency = models.CharField(max_length=20)
@@ -97,20 +96,33 @@ class FuturesTrade(models.Model):
     currency = models.CharField(max_length=20)
     notes = models.TextField(blank=True, null=True)
 
-class TransferRequest(models.Model):
-    requester = models.ForeignKey(User, on_delete=models.CASCADE, related_name="transfer_requests")
-    cred = models.ForeignKey("api.ExchangeCredential", on_delete=models.CASCADE)
-    amount = models.DecimalField(max_digits=20, decimal_places=8)
-    currency = models.CharField(max_length=16)
-    to_address = models.CharField(max_length=128)
+class TransferRequest(models.Model): #Model to track user requests to transfer funds from an exchange to an external address. 
+    # TransferRequest flow: PENDING -> APPROVED -> EXECUTED. Use idempotency_key to avoid duplicates.
+    requester = models.ForeignKey(User, on_delete=models.CASCADE, related_name="transfer_requests")#links the transfer request to the user who made it.
+    #it becomes a numeric foreign key column in the database that references the User table.
+    #if the user is deleted, all their associated transfer requests are also deleted (cascade delete).
+    #related_name="transfer_requests" -> use user.transfer_requests to access this user's transfer requests from the User model.
+    cred = models.ForeignKey("api.ExchangeCredential", on_delete=models.CASCADE)#links to the ExchangeCredential used for the transfer.
+    #if the ExchangeCredential is deleted, all associated transfer requests are also deleted.
+    #api.ExchangeCredential is a string reference to avoid circular import issues. 
+    amount = models.DecimalField(max_digits=20, decimal_places=8) #amount to transfer.
+    currency = models.CharField(max_length=16) #currency to transfer (e.g., "BTC", "ETH").
+    to_address = models.CharField(max_length=128) #destination address for the transfer.
     status = models.CharField(max_length=16, default="PENDING")  # PENDING/APPROVED/REJECTED/EXECUTED
-    created_at = models.DateTimeField(auto_now_add=True)
-    approved_by = models.ForeignKey(User, null=True, blank=True, on_delete=models.SET_NULL, related_name="approved_transfers")
-    approved_at = models.DateTimeField(null=True, blank=True)
-    idempotency_key = models.CharField(max_length=64, unique=True)
+    created_at = models.DateTimeField(auto_now_add=True) #timestamp when the request was created. auto_now_add=True means it’s set once when the object is created.
+    approved_by = models.ForeignKey(User, null=True, blank=True, on_delete=models.SET_NULL, related_name="approved_transfers")#links to the User who approved the transfer.
+    # both blank=True and null=True allow this field to be empty (for pending requests) until an approval happens.
+    # set_null means if the approving user is deleted, this field is set to null instead of deleting the transfer request. so we keep the record of the request.
+    approved_at = models.DateTimeField(null=True, blank=True)#timestamp when the request was approved.
+    #It is optional and starts as None until someone sets it when approving. 
+    idempotency_key = models.CharField(max_length=64, unique=True) #unique key to prevent duplicate requests. unique=True ensures no two requests can have the same key.
 
 class AuditLog(models.Model):
-    user = models.ForeignKey(User, on_delete=models.SET_NULL, null=True)
+    """
+    Simple audit log to track user actions like transfer requests, approvals, executions, etc. 
+    """
+    user = models.ForeignKey(User, on_delete=models.SET_NULL, null=True) # User who performed the action. If the user is deleted, we set this field to null instead of deleting the log.
     action = models.CharField(max_length=64)  # e.g., "TRANSFER_REQUEST", "APPROVE", "EXECUTE"
-    metadata = models.JSONField(default=dict)
+    metadata = models.JSONField(default=dict) # Additional data about the action stored as JSON.
+    # metadata is a JSONField that can store any additional information about the action.
     created_at = models.DateTimeField(auto_now_add=True)

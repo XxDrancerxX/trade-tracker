@@ -1,24 +1,34 @@
-from rest_framework import serializers  
-from .models import SpotTrade, FuturesTrade, ExchangeCredential
-from django.utils.timezone import localtime
-from datetime import timezone
+from rest_framework import serializers  # => DRF serializers module provides tools to convert complex data types, such as Django model instances, 
+# into native Python datatypes that can then be easily rendered into JSON, XML, or other content types. It also provides deserialization,
+# allowing parsed data to be converted back into complex types, after first validating the incoming data.
+from .models import SpotTrade, FuturesTrade, ExchangeCredential # Bring in the Django model classes that the serializers serialize/deserialize.
+from django.utils.timezone import localtime #Django utility to convert UTC times to local time zone.
+from datetime import timezone #Python standard library module for working with dates and times, including time zones.
 from .services.crypto_vault import CryptoVault
 
+##////////////////////////////////////////////////////////////////////////////////////////////////////////////////#
+#These serializers handle the conversion between our Django models and JSON representations for API communication.
+##////////////////////////////////////////////////////////////////////////////////////////////////////////////////#
+
 ## ===>>>⚡ Notice: You don’t send user, id, or trade_time → they are filled automatically.(Post method) <<<==== ##
-#Django REST Framework (DRF) serializer.
+#Django REST Framework (DRF) serializer. (Django REST Framework.)
 # It’s designed to validate and transform input data (usually from an API request) into a model instance.
 
 #Defining a serializers for Our .Models using Django REST Framework (DRF):
 #First model
 class SpotTradeSerializer(serializers.ModelSerializer): # => Converts our .model instances to JSON (and vice versa) for API communication
     # Auto-attach the logged-in user; hidden from requests/responses by default.
-    user = serializers.HiddenField(default=serializers.CurrentUserDefault()) # => You don’t include user in POST bodies.Automatically sets the user field to the currently authenticated user making the request. This way, clients don’t have to (and can’t) specify the user when creating or updating a trade; it’s handled by the server.
+    #During deserialization (POST/PUT), DRF auto-fills user with request.user.
+    user = serializers.HiddenField(default=serializers.CurrentUserDefault()) # => You don’t include user in POST bodies.Automatically sets the user field to the currently authenticated user making the request.
+    #This way, clients don’t have to (and can’t) specify the user when creating or updating a trade; it’s handled by the server.
+    # HiddenField is used for fields that should not be exposed to the API consumer.It’s not shown in output and not expected in input.
+    #serializers.CurrentUserDefault() is a DRF utility that retrieves the currently authenticated user from the request context.
     trade_time_utc = serializers.SerializerMethodField()  #This field will be calculated using a custom method you define.We use SerializerMethodField to add custom, read-only fields (not stored in the model or database).
     trade_time_local = serializers.SerializerMethodField() 
 
     class Meta: #Meta is a special inner class sed to configure behavior for other classes like ModelSerializer.
         model = SpotTrade
-        fields = [
+        fields = [ #List of fields to include in the serialized output and expected in input.
             'id', 'symbol', 'price', 'amount', 'side',
             'exchange', 'currency', 'notes', 'user',
             'trade_time_utc', 'trade_time_local','trade_time'  # =>We add our customs-fields made above  provided by SerializerMethodField.
@@ -43,6 +53,7 @@ class SpotTradeSerializer(serializers.ModelSerializer): # => Converts our .model
             data["side"] = data["side"].upper()
         return super().to_internal_value(data) 
 
+#===============================================================================================================================
 
 #Second model
 class FuturesTradeSerializer(serializers.ModelSerializer):# => Converts our .model instances to JSON (and vice versa) for API communication
@@ -83,7 +94,9 @@ class FuturesTradeSerializer(serializers.ModelSerializer):# => Converts our .mod
             data["side"] = data["side"].upper()
         return super().to_internal_value(data)
 
+#===============================================================================================================================
 
+#Third model
 class ExchangeCredentialCreateSerializer(serializers.ModelSerializer):#ModelSerializer auto-generates fields for model fields in Meta.fields (exchange, label, can_trade, can_transfer).
     # three extra fields added for input only (write_only=True) - not stored directly in the model
     # These are the “explicitly declared fields.”
