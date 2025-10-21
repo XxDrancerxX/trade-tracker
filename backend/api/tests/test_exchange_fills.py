@@ -8,7 +8,7 @@ def test_fills_mock():
     #
     base = "https://api-public.sandbox.exchange.coinbase.com" #Base URL for Coinbase's sandbox API.  
     responses.add( #Mock the GET request to the /fills endpoint ,tells the responses library to intercept GET requests to this URL and return the specified JSON data with a 200 status code.
-        responses.GET, f"{base}/fills", #Only intercept GET requests to this URL
+        responses.GET, f"{base}/fills?limit=1", #Only intercept GET requests to this URL with this exact query parameter. 
         json=[{"trade_id": 1, "product_id": "BTC-USD"}], #The body of the mocked response to return.
         # responses will serialize this list to JSON for us.
         status=200,

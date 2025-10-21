@@ -23,8 +23,9 @@ class SpotTradeSerializer(serializers.ModelSerializer): # => Converts our .model
     #This way, clients don’t have to (and can’t) specify the user when creating or updating a trade; it’s handled by the server.
     # HiddenField is used for fields that should not be exposed to the API consumer.It’s not shown in output and not expected in input.
     #serializers.CurrentUserDefault() is a DRF utility that retrieves the currently authenticated user from the request context.
-    trade_time_utc = serializers.SerializerMethodField()  #This field will be calculated using a custom method you define.We use SerializerMethodField to add custom, read-only fields (not stored in the model or database).
-    trade_time_local = serializers.SerializerMethodField() 
+    trade_time_utc = serializers.SerializerMethodField()  #This field will be calculated using a custom method you define.We 
+    trade_time_local = serializers.SerializerMethodField()  # SerializerMethodField() creates a read-only field in the serializer, not in the model.
+    
 
     class Meta: #Meta is a special inner class sed to configure behavior for other classes like ModelSerializer.
         model = SpotTrade
@@ -51,7 +52,7 @@ class SpotTradeSerializer(serializers.ModelSerializer): # => Converts our .model
     def to_internal_value(self, data):
         if "side" in data and isinstance(data["side"], str): # => This method is called during deserialization, when converting incoming data (e.g., from a POST request) into a model instance. Here, we ensure that the 'side' field is always stored in uppercase.
             data["side"] = data["side"].upper()
-        return super().to_internal_value(data) 
+        return super().to_internal_value(data)  #Calls the parent class's to_internal_value to handle the rest of the deserialization process.
 
 #===============================================================================================================================
 
@@ -105,9 +106,11 @@ class ExchangeCredentialCreateSerializer(serializers.ModelSerializer):#ModelSeri
     saves to *_enc. Attaches the row to request.user. Never returns plaintext.
     """
 
-    api_key = serializers.CharField(write_only=True)
-    api_secret = serializers.CharField(write_only=True)
-    passphrase = serializers.CharField(write_only=True, required=False, allow_blank=True)
+    api_key = serializers.CharField(write_only=True) # The API key for the exchange account.     
+    api_secret = serializers.CharField(write_only=True) # The API secret for the exchange account.
+    passphrase = serializers.CharField(write_only=True, required=False, allow_blank=True) # Optional passphrase for exchanges that require it.
+    # These fields are write-only because we never want to expose sensitive credentials in API responses.
+    # These fields are accepted on create/update but never shown in API responses.
 
     class Meta:
         model = ExchangeCredential
@@ -115,13 +118,15 @@ class ExchangeCredentialCreateSerializer(serializers.ModelSerializer):#ModelSeri
 
     def create(self, validated):
         v = CryptoVault()
-        return ExchangeCredential.objects.create(
-            user=self.context["request"].user,
-            exchange=validated["exchange"],
+        return ExchangeCredential.objects.create( # Create and return a new ExchangeCredential instance using the validated data.
+            #validated is a dictionary of the validated input data.
+            user=self.context["request"].user, #views passes the request in the serializer context. We use it to set the user field. 
+            #We are injecting the currently authenticated user into the new ExchangeCredential instance.
+            exchange=validated["exchange"], 
             label=validated.get("label","default"),
             api_key_enc=v.enc(validated["api_key"]),
             api_secret_enc=v.enc(validated["api_secret"]),
             passphrase_enc=v.enc(validated.get("passphrase","")) if validated.get("passphrase") else None,
-            can_trade=validated.get("can_trade", True),
-            can_transfer=validated.get("can_transfer", False),
+            can_trade=validated.get("can_trade", True), #Default to True if not provided.because most users will want trading enabled.
+            can_transfer=validated.get("can_transfer", False),#Default to False if not provided.because most users won’t need transfer capabilities.
         )

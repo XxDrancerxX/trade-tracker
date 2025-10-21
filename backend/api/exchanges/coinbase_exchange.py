@@ -190,3 +190,39 @@ class CoinbaseExchangeAdapter:  # handle authentication for Coinbase API request
         r = requests.get(url, headers=headers, timeout=15)
         r.raise_for_status()
         return r.json()
+    #------------------------------------------------------------------------------------------------------------------------------
+
+
+
+def build_exchange_adapter(cred):
+    """
+    Module-level factory: decrypt credential fields and return a CoinbaseExchangeAdapter.
+    Expects cred to have api_key_enc, api_secret_enc, passphrase_enc attributes.
+    """
+    vault = CryptoVault()
+
+    def _to_str(v):
+        if v is None:
+            return None
+        if isinstance(v, (bytes, bytearray)):
+            try:
+                return v.decode()
+            except Exception:
+                return base64.b64encode(v).decode()
+        return v
+
+    raw_key = vault.dec(getattr(cred, "api_key_enc", None)) if getattr(cred, "api_key_enc", None) else None
+    raw_secret = vault.dec(getattr(cred, "api_secret_enc", None)) if getattr(cred, "api_secret_enc", None) else None
+    raw_pass = vault.dec(getattr(cred, "passphrase_enc", None)) if getattr(cred, "passphrase_enc", None) else None
+
+    api_key = _to_str(raw_key)
+    passphrase = _to_str(raw_pass)
+
+    # CoinbaseExchangeAdapter expects api_secret_b64 (base64 string). If raw_secret is bytes encode it.
+    if isinstance(raw_secret, (bytes, bytearray)):
+        api_secret_b64 = base64.b64encode(raw_secret).decode()
+    else:
+        api_secret_b64 = _to_str(raw_secret)
+
+    return CoinbaseExchangeAdapter(api_key=api_key, api_secret_b64=api_secret_b64, passphrase=passphrase)
+# ...existing code...

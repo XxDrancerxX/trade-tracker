@@ -17,7 +17,7 @@ class SpotTradeViewSet(viewsets.ModelViewSet):# => automatically builds all REST
 
 class FuturesTradeViewSet(viewsets.ModelViewSet):
     serializer_class = FuturesTradeSerializer
-    permission_classes = [permissions.IsAuthenticated] #
+    permission_classes = [permissions.IsAuthenticated] 
 
     def get_queryset(self):
         return FuturesTrade.objects.filter(user=self.request.user)
