@@ -14,7 +14,7 @@ Including another URLconf
     1. Import the include() function: from django.urls import include, path
     2. Add a URL to urlpatterns:  path('blog/', include('blog.urls'))
 """
-
+from django.http import JsonResponse # to return JSON responses in our views.
 from django.contrib import admin
 from django.urls import path,include
 from rest_framework.routers import DefaultRouter
@@ -25,11 +25,15 @@ router = DefaultRouter() # => This router automatically generates URL patterns f
 router.register(r'spot-trades', SpotTradeViewSet, basename='spottrade' ) # => This line registers the SpotTradeViewSet with the router. The URL prefix 'spot-trades' means that all endpoints for this viewset will be accessible under /api/spot-trades/. The basename is used to name the URL patterns.
 router.register(r'futures-trades', FuturesTradeViewSet, basename='futurestrade') # => This line registers the FuturesTradeViewSet with the router. The URL prefix 'futures-trades' means that all endpoints for this viewset will be accessible under /api/futures-trades/. The basename is used to name the URL patterns.
 
-def home(request):
-    return HttpResponse("✅ Welcome to the Trade Tracker API!")
+def health(_request):
+    return JsonResponse({"status": "ok", "service": "trade-tracker-backend", "version": "0.0.1"})
+
+def home(_request):
+    return JsonResponse({"message": "✅ Welcome to the Trade Tracker API!"})
 
 urlpatterns = [
     path("", home),
+    path("api/health", health),  # ✅ Health check endpoint
     path("admin/", admin.site.urls),      # ✅ Keeps the admin panel!
     path("api/", include(router.urls)),   # ✅ REST API at /api/...
 ]

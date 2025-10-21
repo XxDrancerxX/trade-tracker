@@ -37,10 +37,14 @@ COINBASE_API_SECRET = os.getenv("COINBASE_API_SECRET")
 #Env vars are strings → normalize them.
 SECRET_KEY = os.getenv("SECRET_KEY", "unsafe-dev-key")
 DEBUG = os.getenv("DEBUG", "True").lower() in {"1", "true", "yes"} # Default to True if not set, but should be False in production.
-ALLOWED_HOSTS = ["*"] if DEBUG else [] # In production, set this to your domain(s).
+ALLOWED_HOSTS = ["*"] if DEBUG else os.getenv("ALLOWED_HOSTS", "").split(",") if os.getenv("ALLOWED_HOSTS") else [] # In production, set this to your domain(s).
+SECURE_PROXY_SSL_HEADER = ("HTTP_X_FORWARDED_PROTO", "https") # For correct detection of secure connections behind proxies.
 
+# Frontend URLs (optional .env: FRONTEND_URLS="https://app.example,https://staging.example")
+FRONTEND_URLS = [u.strip() for u in os.getenv("FRONTEND_URLS", "").split(",") if u.strip()] # List of allowed frontend URLs for CORS.
 
 # Only enforce these in production:
+# ---- Security flags: enable ONLY in production ---------------------
 if not DEBUG:
     SECURE_SSL_REDIRECT = True
     SESSION_COOKIE_SECURE = True
@@ -48,18 +52,18 @@ if not DEBUG:
     SECURE_HSTS_SECONDS = 31536000
     SECURE_HSTS_INCLUDE_SUBDOMAINS = True
     SECURE_HSTS_PRELOAD = True
+else:
+    # Make sure these are relaxed in dev
+    SECURE_SSL_REDIRECT = False
+    SESSION_COOKIE_SECURE = False
+    CSRF_COOKIE_SECURE = False
+
+# Database / i18n / static remain as you have
 
 # If you want CORS now, add django-cors-headers; otherwise remove CORS_ALLOWED_ORIGINS for now
 
 
 # SECURITY WARNING: don't run with debug turned on in production!
-
-SECURE_SSL_REDIRECT = True
-SESSION_COOKIE_SECURE = True
-CSRF_COOKIE_SECURE = True
-SECURE_HSTS_SECONDS = 31536000
-SECURE_HSTS_INCLUDE_SUBDOMAINS = True
-SECURE_HSTS_PRELOAD = True
 
 
 # Application definition
@@ -72,7 +76,8 @@ INSTALLED_APPS = [
     "django.contrib.messages",
     "django.contrib.staticfiles",
     "api",
-    "rest_framework"
+    "rest_framework",
+    "corsheaders", # For handling CORS
 ]
 # Django REST Framework settings for authentication and permissions
 # You can customize these settings as needed.
@@ -88,11 +93,14 @@ REST_FRAMEWORK = {
   "DEFAULT_THROTTLE_CLASSES": ["rest_framework.throttling.UserRateThrottle"],
   "DEFAULT_THROTTLE_RATES": {"user": "120/min"},
 }
-CORS_ALLOWED_ORIGINS = ["https://your-frontend.example"] # Adjust this to your frontend's actual URL.
+CORS_ALLOWED_ORIGINS = FRONTEND_URLS # Adjust this to your frontend's actual URL.
+CORS_ALLOW_CREDENTIALS = True  # allow cookies/Authorization header when needed
+CSRF_TRUSTED_ORIGINS = FRONTEND_URLS # Trust CSRF from these origins.
 
 
 MIDDLEWARE = [
     "django.middleware.security.SecurityMiddleware",
+    "corsheaders.middleware.CorsMiddleware",   # as high as possible, before CommonMiddleware
     "django.contrib.sessions.middleware.SessionMiddleware",
     "django.middleware.common.CommonMiddleware",
     "django.middleware.csrf.CsrfViewMiddleware",
@@ -100,6 +108,7 @@ MIDDLEWARE = [
     "django.contrib.messages.middleware.MessageMiddleware",
     "django.middleware.clickjacking.XFrameOptionsMiddleware",
 ]
+
 
 ROOT_URLCONF = "core.urls"
 
