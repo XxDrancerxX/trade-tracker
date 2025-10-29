@@ -2,6 +2,8 @@ import os, time, hmac, hashlib, base64, requests
 from urllib.parse import urlencode 
 from api.services.crypto_vault import CryptoVault
 
+# Here we handle authentication for Coinbase API requests.
+
 # The difference between query and body in HTTP requests:
 
 # Query parameters are part of the URL, after the ?. Example:

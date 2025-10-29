@@ -7,8 +7,7 @@ from django.utils import timezone # Import timezone utilities to handle date and
 # superuser
 # super@user.com
 # 123456
-#------------------------------------------------------------------------------------------------------------------------------#For the fields trade_time and created_at, we use DateTimeField to store date and time information.
-
+#------------------------------------------------------------------------------------------------------------------------------
 #For the fields trade_time and created_at, we use DateTimeField to store date and time information.
 # trade_time records when the trade actually happened, while created_at automatically records when the trade entry was created in the database.
 # We set default=timezone.now for trade_time to automatically set it
@@ -23,6 +22,7 @@ from django.utils import timezone # Import timezone utilities to handle date and
 # ForeignKey creates a relationship to another model (like User), and DateTimeField is for date/time values.
 #This is what basically transforms classes into database tables with rows and columns.
 #===============================================================================================================================
+#model.Model is the base class for all Django models and it assigns an automatic primary key field called id to each model unless we explicitly define one ourselves.
 
 class ExchangeCredential(models.Model):#Secure place to store each user’s encrypted API key/secret/passphrase (*_enc bytes). One row per connected exchange account.
     """
@@ -53,6 +53,23 @@ class SpotTrade(models.Model):
     def __str__(self):
         return f"{self.user.username} - {self.symbol} = {self.side} - @ {self.price}"
     
+    external_id = models.CharField(max_length=64, null=True, blank=True, db_index=True) # External exchange trade ID (if available). null=True allows the database to store NULL for this field, and blank=True allows forms to accept empty values for this field.
+    # db_index=True creates a database index on this field to speed up lookups and queries involving external_id.
+    # This field is optional; if the exchange does not provide an external trade ID, it can be left blank or set to NULL. 
+
+    # External_id must be unique per (user,exchange) only for rows where external_id is NOT NULL.” This lets many NULL external_id rows exist while preventing duplicate non-null external_ids.
+    # Because the constraint creates an index, db_index=True on external_id is usually redundant when the constraint covers that column.  
+
+    class Meta: #Inner class of Django models to configures model-level options and how Django/DB should treat the table. it controls behavior and schema-level properties.
+        constraints = [ # -->> "constraints" is a Django Meta attribute, List of database constraints to enforce data integrity and uniqueness.
+            models.UniqueConstraint( # A Django constraint object that enforces uniqueness across  one or more columns in the database table.
+                # fields, name, condition are parameters to the UniqueConstraint object — they are metadata for the constraint, not new columns.
+                fields = ["user", "exchange", "external_id"], # List of fields that together must be unique. Here, the combination of user, exchange, and external_id must be unique.
+                name = "uniq_user_exchange_external_spot", # Name of the constraint in the database. This is how the constraint will be identified in the DB schema.
+                condition = ~models.Q(external_id__isnull=True), # Condition to apply the uniqueness constraint only when external_id is NOT NULL.
+            )# "models.Q" allows us to create complex queries and conditions. Here, we use it to specify that the uniqueness constraint should only apply when external_id is not null.
+        ]
+    
     symbol = models.CharField(max_length=10) # stores the trade instrument/ticker (e.g., "BTCUSD", "ETH", "BTC-USD") for each SpotTrade.
     price = models.DecimalField(max_digits=10,decimal_places=2) # => This field stores the price at which the trade was executed. DecimalField is used for precise decimal numbers, which is important for financial data.
     # max_digits=10 means the number can have up to 10 digits in total, and decimal_places=2 means 2 of those digits can be after the decimal point.
@@ -73,8 +90,18 @@ class SpotTrade(models.Model):
 
 class FuturesTrade(models.Model):    
     def __str__(self):
-        return f"{self.user.username} - {self.symbol} = {self.side} - @ {self.price}"
+        return f"{self.user.username} - {self.symbol} = {self.side} - @ {self.price}"    
     
+    external_id = models.CharField(max_length=64, null=True, blank=True, db_index=True)    
+    class Meta: #Inner class of Django models to configures model-level options and how Django/DB should treat the table. it controls behavior and schema-level properties.
+        constraints = [ # -->> "constraints" is a Django Meta attribute, List of database constraints to enforce data integrity and uniqueness.
+            models.UniqueConstraint( # A Django constraint object that enforces uniqueness across  one or more columns in the database table.
+                # fields, name, condition are parameters to the UniqueConstraint object — they are metadata for the constraint, not new columns.
+                fields = ["user", "exchange", "external_id"], # List of fields that together must be unique. Here, the combination of user, exchange, and external_id must be unique.
+                name = "uniq_user_exchange_external_futures", # Name of the constraint in the database. This is how the constraint will be identified in the DB schema.
+                condition = ~models.Q(external_id__isnull=True), # Condition to apply the uniqueness constraint only when external_id is NOT NULL.
+            )
+        ]
     symbol = models.CharField(max_length=10)
     price = models.DecimalField(max_digits=10,decimal_places=2)
     entry_price = models.DecimalField(max_digits=10, decimal_places=2)
@@ -91,7 +118,6 @@ class FuturesTrade(models.Model):
     ("BUY", "Buy"),
     ("SELL", "Sell"),
     ] 
-
     side = models.CharField(max_length=4, choices=SIDE_CHOICES)   
     currency = models.CharField(max_length=20)
     notes = models.TextField(blank=True, null=True)

@@ -36,8 +36,10 @@ class Command(BaseCommand):
         p.add_argument("--product", default="BTC-USD") #Adds an optional argument --product to the ticker subcommand, with a default value of BTC-USD.
         #So you can do:
         # python manage.py cb ticker --product ETH-USD
-        #Result ends up as opts["product"] == "ETH-USD" (or "BTC-USD" if omitted).
-        sub.add_parser("orders")
+        #Result ends up as opts["product"] == "ETH-USD" (or "BTC-USD" if omitted).        
+        p_orders = sub.add_parser("orders") #Adds an orders subcommand.
+        p_orders.add_argument("--status", default=None, help='Coinbase order status: open, done, all, etc.') #Optional argument --status for filtering orders by status.
+
 
     def handle(self, *args, **opts):
         # *args: ordered positional args you defined with parser.add_argument("name"). If you didn’t define positional args, this is usually empty.
@@ -67,7 +69,8 @@ class Command(BaseCommand):
             elif action == "orders":
                 if not (c.api_key and c.api_secret_b64 and c.passphrase):
                     raise CommandError("Missing API creds for private call (orders).")
-                data = c.order_list() if hasattr(c, "order_list") else []  # hasattr checks if an object has an attribute or method with a given name.
+                status = opts.get("status") #Gets the --status option value if provided; otherwise, None.
+                data = c.order_list(status=status) if hasattr(c, "order_list") else []#Calls c.order_list(...) to fetch orders from Coinbase Exchange, filtering by status if given.
             elif action == "fills":
                 product_id = opts.get("product_id")
                 order_id = opts.get("order_id")
