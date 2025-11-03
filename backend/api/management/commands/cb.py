@@ -66,12 +66,12 @@ class Command(BaseCommand):
                 data = c.accounts()
             elif action == "ticker":
                 data = c.product_ticker(opts["product"])
-            elif action == "orders":
+            elif action == "orders": #Orders is the endpoint for fetching user orders.
                 if not (c.api_key and c.api_secret_b64 and c.passphrase):
                     raise CommandError("Missing API creds for private call (orders).")
                 status = opts.get("status") #Gets the --status option value if provided; otherwise, None.
                 data = c.order_list(status=status) if hasattr(c, "order_list") else []#Calls c.order_list(...) to fetch orders from Coinbase Exchange, filtering by status if given.
-            elif action == "fills":
+            elif action == "fills": #Fills is the endpoint for trade fills (completed trades).
                 product_id = opts.get("product_id")
                 order_id = opts.get("order_id")
                 limit = opts.get("limit")

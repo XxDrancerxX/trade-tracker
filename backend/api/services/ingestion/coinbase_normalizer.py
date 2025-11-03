@@ -1,5 +1,7 @@
 from decimal import Decimal, InvalidOperation
 from datetime import datetime, timezone
+#This normalizer is not an HTTP endpoint, this is just a utility to convert Coinbase fill/order data into our internal SpotTrade format.
+#feed  it per-fill dicts from /fills or completed order dicts from /orders so the downstream SpotTrade creation logic can treat them uniformly. Keeping the raw payload in notes helps diagnose mismatches between Coinbase endpoints.
 
 def normalize_fill_to_spot(fill: dict) -> dict: ## The colon after fill is a type hint: fill is expected to be a dict (this is for readability/static type checkers only — not enforced at runtime).
     # > dict : Return type hint: the function is expected to return a dict. Again, informative for readers and tools (mypy), not enforced at runtime.
@@ -8,7 +10,7 @@ def normalize_fill_to_spot(fill: dict) -> dict: ## The colon after fill is a typ
     Tolerates variations between /fills and /orders payloads.
     Raises ValueError on missing/invalid fields.
     """
-    try:
+    try:#Handle possible variations in field names and missing data.
         # accept multiple possible id keys (trade-level id, order id, fill id)
         raw_id = fill.get("trade_id") or fill.get("id") or fill.get("fill_id") or fill.get("order_id")
         if raw_id is None:
@@ -19,13 +21,13 @@ def normalize_fill_to_spot(fill: dict) -> dict: ## The colon after fill is a typ
         if not product_id:
             # The subsequent if not product_id: raise KeyError("product_id") uses the empty string (which is falsy) to detect “missing” and raise a clear error. So the "" is just a sentinel that fails the check.
             # Avoids converting None → "None" (which would be wrong).
-            raise KeyError("product_id")
+            raise KeyError("product_id") # Raises a KeyError if product_id is missing.
 
         side = str(fill.get("side") or "").upper() # convert side to uppercase string
 
         # amount: fills use "size", orders use "filled_size"
         # different Coinbase endpoints use different field names — /fills returns "size" while /orders returns "filled_size".
-        size_raw = fill.get("size") or fill.get("filled_size") or fill.get("quantity")
+        size_raw = fill.get("size") or fill.get("filled_size") or fill.get("quantity") #this is the raw numeric value (string or number) for the trade amount.
         if size_raw is None:
             raise KeyError("size/filled_size/quantity")
         amount = Decimal(str(size_raw)) # convert to Decimal for precision
@@ -39,7 +41,7 @@ def normalize_fill_to_spot(fill: dict) -> dict: ## The colon after fill is a typ
             if executed_value is None:
                 # price can be missing for some order payloads; compute requires executed_value
                 raise KeyError("price or executed_value")
-            try:
+            try:#Guards against division errors and invalid numeric values such as non-numeric strings.
                 price = Decimal(str(executed_value)) / (amount if amount != 0 else Decimal("1"))
             except (InvalidOperation, ZeroDivisionError) as e:
                 raise ValueError(f"Invalid numeric values for price computation: {e}") from e
@@ -56,7 +58,7 @@ def normalize_fill_to_spot(fill: dict) -> dict: ## The colon after fill is a typ
     except InvalidOperation as e:
         raise ValueError(f"Invalid numeric value: {e}") from e
 
-    try:
+    try:  # parse ISO 8601 timestamp, ensure UTC
         trade_time = datetime.fromisoformat(created_at.replace("Z", "+00:00")).astimezone(timezone.utc)
     except Exception:
         raise ValueError(f"Invalid timestamp: {created_at}")
