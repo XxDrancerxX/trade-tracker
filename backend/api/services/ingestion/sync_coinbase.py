@@ -57,14 +57,24 @@ def sync_coinbase_fills_once(cred: ExchangeCredential, limit: int = 50) -> Tuple
     if dupes:
         logger.info("skipping %d duplicates already in DB", dupes)
 
+    # NEW: remove duplicates within the current page (same external_id)
+    unique_rows: List[SpotTrade] = []
+    seen_page_ids: set[str] = set()
+    dupes_in_page = 0
+    for r in new_rows:
+        if r.external_id:
+            if r.external_id in seen_page_ids:
+                dupes_in_page += 1
+                continue
+            seen_page_ids.add(r.external_id)
+        unique_rows.append(r)
+    if dupes_in_page:
+        logger.info("skipping %d duplicates in current page", dupes_in_page)
+
     inserted = 0
-    if new_rows:
+    if unique_rows:
         with transaction.atomic():
-            created_objs = SpotTrade.objects.bulk_create(
-                new_rows, ignore_conflicts=True, batch_size=500
-            )
-            inserted = len(created_objs)   # ← count what the DB really inserted
-    if bad_count:
-        logger.info("skipped %d bad payloads", bad_count)
+            SpotTrade.objects.bulk_create(unique_rows, ignore_conflicts=True, batch_size=500)
+            inserted = len(unique_rows)
 
     return inserted, seen
