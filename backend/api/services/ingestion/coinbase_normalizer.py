@@ -70,7 +70,7 @@ def normalize_fill_to_spot(fill: dict) -> dict: ## The colon after fill is a typ
         if len(parts) >= 2:
             currency = parts[-1]
 
-    notes = {
+    notes = {  # include relevant raw fields for auditing/debugging
         "order_id": fill.get("order_id"),
         "fee": str(fee),
         "executed_value": str(fill.get("executed_value")) if fill.get("executed_value") is not None else None,

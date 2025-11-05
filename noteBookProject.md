@@ -246,7 +246,13 @@ This restores everything exactly as before.
 1. Open VS Code and install an MCP-compatible extension (e.g. GitHub Copilot Chat).
 2. Create or edit the MCP config file at:
 
+Each time codespaces is closed this goes down so you need to restart each time you open codespaces.
+
+ctrl + p
+and then insert:
 ~/.vscode-remote/data/User/mcp.json
+
+restart
 
 3. Add the Coinbase server:
 
@@ -368,6 +374,8 @@ You can add multiple MCP servers (e.g. internal docs, other APIs) to the same fi
   - Open/filled orders: `python manage.py cb orders`
   - Recent fills for product: `python manage.py cb fills --product_id BTC-USD --limit 5`
   - Fills by order id: `python manage.py cb fills --order_id <uuid>`
+  - /orders endpoint returns only open orders when you omit the status filter. Once an order finishes and settles, Coinbase stops including it in that default response. 
+  
 - Gotchas:
   - Running from wrong directory → `manage.py` not found (must be in `backend/`).
   - `/fills` 400 if neither `product_id` nor `order_id` passed.

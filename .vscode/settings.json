@@ -2,5 +2,6 @@
   "python.defaultInterpreterPath": "/workspaces/trade-tracker/backend/.venv/bin/python",  // Adjust this path if your virtual environment is located elsewhere.
   "python.terminal.activateEnvironment": true, // Automatically activate the virtual environment in the terminal.
   "python.testing.pytestEnabled": true, // Enable pytest as the test framework.
-  "python.testing.unittestEnabled": false // Disable unittest if not used.
+  "python.testing.unittestEnabled": false,
+  "python-envs.pythonProjects": [] // Disable unittest if not used.
 }
