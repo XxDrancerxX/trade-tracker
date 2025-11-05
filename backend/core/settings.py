@@ -95,7 +95,29 @@ REST_FRAMEWORK = {
 }
 CORS_ALLOWED_ORIGINS = FRONTEND_URLS # Adjust this to your frontend's actual URL.
 CORS_ALLOW_CREDENTIALS = True  # allow cookies/Authorization header when needed
-CSRF_TRUSTED_ORIGINS = FRONTEND_URLS # Trust CSRF from these origins.
+_trusted_origins = list(FRONTEND_URLS) # Start with frontend URLs
+if DEBUG:
+    dev_ports = [
+        port.strip()
+        for port in os.getenv("DEV_SERVER_PORTS", "8000").split(",")
+        if port.strip()
+    ]
+    for port in dev_ports:
+        for scheme in ("http", "https"):
+            _trusted_origins.extend(
+                [
+                    f"{scheme}://localhost:{port}",
+                    f"{scheme}://127.0.0.1:{port}",
+                ]
+            )
+    _trusted_origins.append("https://*.app.github.dev")  # Codespaces proxies any port.
+extra_origins = [
+    origin.strip()
+    for origin in os.getenv("CSRF_TRUSTED_EXTRA_ORIGINS", "").split(",")
+    if origin.strip()
+]
+_trusted_origins.extend(extra_origins)
+CSRF_TRUSTED_ORIGINS = list(dict.fromkeys(_trusted_origins)) # Trust CSRF from these origins.
 
 
 MIDDLEWARE = [

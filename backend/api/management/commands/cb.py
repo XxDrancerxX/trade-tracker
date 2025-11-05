@@ -39,6 +39,14 @@ class Command(BaseCommand):
         #Result ends up as opts["product"] == "ETH-USD" (or "BTC-USD" if omitted).        
         p_orders = sub.add_parser("orders") #Adds an orders subcommand.
         p_orders.add_argument("--status", default=None, help='Coinbase order status: open, done, all, etc.') #Optional argument --status for filtering orders by status.
+        # NEW: Sync Coinbase Fills:
+        p_sync = sub.add_parser("sync_fills")
+        p_sync.add_argument("--username", required=True, help="Owner of the ExchangeCredential")
+        p_sync.add_argument("--label", default="default", help="Credential label (default: default)")
+        p_sync.add_argument("--limit", type=int, default=50, help="Page size (default: 50)")
+        p_sync.add_argument("--product_id", help="Coinbase product like BTC-USD")
+        p_sync.add_argument("--order_id", help="Specific order UUID")
+
 
 
     def handle(self, *args, **opts):
@@ -76,7 +84,40 @@ class Command(BaseCommand):
                 order_id = opts.get("order_id")
                 limit = opts.get("limit")
                 data = c.fills(limit=limit, product_id=product_id, order_id=order_id) if hasattr(c, "fills") else []
-                           
+                # sync_fills:  action to sync fills into our database.
+
+            elif action == "sync_fills":
+                from django.contrib.auth.models import User
+                from api.models import ExchangeCredential
+                from api.services.ingestion.sync_coinbase import sync_coinbase_fills_once
+
+                username = opts["username"]
+                label = opts["label"]
+                limit = opts["limit"]
+
+                try:
+                    user = User.objects.get(username=username)
+                except User.DoesNotExist:
+                    raise CommandError(f"User '{username}' not found")
+
+                try:
+                    cred = ExchangeCredential.objects.get(
+                        user=user, exchange="coinbase", label=label
+                    )
+                except ExchangeCredential.DoesNotExist:
+                    raise CommandError(
+                        f"ExchangeCredential not found for user='{username}', exchange='coinbase', label='{label}'"
+                    )
+
+                inserted, seen = sync_coinbase_fills_once(
+                        cred,
+                        limit=limit,
+                        product_id=opts.get("product_id"),
+                        order_id=opts.get("order_id"),
+                    )
+                self.stdout.write(self.style.SUCCESS(f"sync done: inserted={inserted} seen={seen}"))
+                return    
+                          
             else:
                 raise CommandError(f"Unknown action: {action}") #If the user provides an invalid subcommand, raises a CommandError with a message like "Unknown action: ...".
 

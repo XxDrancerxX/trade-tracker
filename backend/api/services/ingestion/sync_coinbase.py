@@ -1,6 +1,6 @@
 import logging
 import json
-from typing import Tuple, List
+from typing import Optional, Tuple, List
 from django.db import transaction
 from api.exchanges.coinbase_exchange import build_exchange_adapter
 from api.services.ingestion.coinbase_normalizer import normalize_fill_to_spot
@@ -10,13 +10,18 @@ logger = logging.getLogger(__name__) # module-level logger
 # logging is configured in the Django settings module for consistency across the project.
 # Used here to log warnings and info about the sync process.
 
-def sync_coinbase_fills_once(cred: ExchangeCredential, limit: int = 50) -> Tuple[int, int]:
+def sync_coinbase_fills_once(cred: ExchangeCredential, limit: int = 50, product_id: Optional[str] = None, order_id: Optional[str] = None) -> Tuple[int, int]:
+
     """
     Fetch one page of fills and insert as SpotTrade (idempotent).
     Returns (inserted_count, seen_count).
     """
     adapter = build_exchange_adapter(cred) # Instantiate the CoinbaseExchangeAdapter using the provided ExchangeCredential.
-    fills = adapter.fills(limit=limit) # Fetch fills from Coinbase using the adapter's fills method, limited to the specified number.
+    fills = adapter.fills(
+        limit=limit,
+        product_id=product_id,
+        order_id=order_id,
+    ) # Fetch fills from Coinbase using the adapter's fills method, limited to the specified number.
 
     rows: List[SpotTrade] = []
     bad_count = 0
