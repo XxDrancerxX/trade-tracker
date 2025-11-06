@@ -68,7 +68,7 @@ def test_sync_happy_and_idempotent(monkeypatch): #monkeypatch is a pytest fixtur
     # inserted2 == 0 → nothing new was written,
     # seen2 == 2 → both payloads were still processed/normalized,
     # SpotTrade.objects.count() == 2 → DB row count didn’t change.
-    inserted2, seen2 = sync_coinbase_fills_once(cred, limit=50)
+    inserted2, seen2 = sync_coinbase_fills_once(cred, limit=50, product_id="BTC-USD")
     assert inserted2 == 0
     assert seen2 == 2
     assert SpotTrade.objects.count() == 2
@@ -94,7 +94,7 @@ def test_sync_skips_bad_payloads(monkeypatch, caplog):
     )
 
     class FakeAdapter:
-        def fills(self, limit=50):
+        def fills(self, *, limit=50, product_id=None, order_id=None):
             return [
                 {  # good
                     "trade_id": 10,
@@ -117,7 +117,7 @@ def test_sync_skips_bad_payloads(monkeypatch, caplog):
     monkeypatch.setattr(mod, "build_exchange_adapter", lambda c: FakeAdapter())
 
     with caplog.at_level("WARNING"):
-        inserted, seen = sync_coinbase_fills_once(cred, limit=50)
+        inserted, seen = sync_coinbase_fills_once(cred, limit=50, product_id="BTC-USD")
 
     assert inserted == 1
     assert seen == 1                # bad was excluded from "seen"
@@ -145,7 +145,7 @@ def test_sync_duplicate_in_same_page(monkeypatch):
     )
 
     class FakeAdapter:
-        def fills(self, limit=50):
+        def fills(self, *, limit=50, product_id=None, order_id=None):
             base = {
                 "product_id": "BTC-USD",
                 "side": "buy",
@@ -160,7 +160,7 @@ def test_sync_duplicate_in_same_page(monkeypatch):
     import api.services.ingestion.sync_coinbase as mod
     monkeypatch.setattr(mod, "build_exchange_adapter", lambda c: FakeAdapter())
 
-    inserted, seen = sync_coinbase_fills_once(cred, limit=50)
+    inserted, seen = sync_coinbase_fills_once(cred, limit=50, product_id="BTC-USD")
     assert inserted == 1   # only one actually inserted
     assert seen == 2       # both normalized
     assert SpotTrade.objects.count() == 1
@@ -178,5 +178,15 @@ def test_sync_passes_filters(monkeypatch):
             return []
     import api.services.ingestion.sync_coinbase as mod    
     monkeypatch.setattr(mod, "build_exchange_adapter", lambda c: FakeAdapter())
+    
+    user = User.objects.create_user("u4", "u4@x.com", "p")
+    cred = ExchangeCredential.objects.create(
+        user=user,
+        exchange="coinbase",
+        label="default",
+        api_key_enc=b"x",
+        api_secret_enc=b"y",
+        passphrase_enc=b"z",
+    )
     sync_coinbase_fills_once(cred, limit=25, product_id="ETH-USD", order_id="abc")
     assert seen_opts == {"limit": 25, "product_id": "ETH-USD", "order_id": "abc"}
