@@ -349,7 +349,7 @@ You can add multiple MCP servers (e.g. internal docs, other APIs) to the same fi
 - Purpose: Developer/debug CLI to hit Coinbase adapter endpoints and pretty-print JSON (no view/URL layer needed).
 - Subcommand architecture:
   - Uses `parser.add_subparsers(dest="action", required=True)` so exactly one action must be chosen.
-  - Registered subcommands: `products`, `accounts`, `ticker`, `orders`, `fills`.
+  - Registered subcommands: `products`, `accounts`, `ticker`, `orders`, `fills`, `sync_fills`.
   - Each subcommand gets its own arguments (e.g. `ticker --product`, `fills --product_id/--order_id/--limit`).
 - Flow on execution (`python manage.py cb <action> [flags]`):
   1. Django loads `Command` class (name of file = command name: `cb.py` → `cb`).
@@ -363,10 +363,14 @@ You can add multiple MCP servers (e.g. internal docs, other APIs) to the same fi
   - Explicit credential checks before private endpoints give clear messages instead of opaque 401s.
 - Private vs Public:
   - Public: `products`, `ticker` (no key requirement).
-  - Private: `accounts`, `orders`, `fills` (HMAC headers required).
+  - Private: `accounts`, `orders`, `fills`, `sync_fills` (HMAC headers required).
 - Extending pattern:
   - Add new endpoint: define `p_new = sub.add_parser("something")` in `add_arguments`; add flags via `p_new.add_argument(...)`; implement `elif action == "something": data = c.some_method(...)` in `handle()`.
   - Keep output JSON-only for easy piping: `python manage.py cb orders | jq '. | length'`.
+
+### ▶️ sync-fills (one-page import)
+- How it works: loads the user’s ExchangeCredential → builds Coinbase adapter → calls /fills → normalizes → de-dupes (DB + in-page) → bulk-inserts SpotTrade.
+
 - Typical usage snippets:
   - List products: `python manage.py cb products`
   - Ticker for ETH: `python manage.py cb ticker --product ETH-USD`
@@ -374,6 +378,12 @@ You can add multiple MCP servers (e.g. internal docs, other APIs) to the same fi
   - Open/filled orders: `python manage.py cb orders`
   - Recent fills for product: `python manage.py cb fills --product_id BTC-USD --limit 5`
   - Fills by order id: `python manage.py cb fills --order_id <uuid>`
+  - One-page sync into SpotTrade (private):`python manage.py cb sync_fills --username <user> [--label default] [--limit 50]`
+  -python manage.py cb sync-fills --username alice --limit 100
+# Run twice to verify idempotency (second run should insert 0)  
+
+  Tips: add --verbosity 2 for more logs; replace placeholders like <user> with real values.
+
   - /orders endpoint returns only open orders when you omit the status filter. Once an order finishes and settles, Coinbase stops including it in that default response. 
   
 - Gotchas:
