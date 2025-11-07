@@ -209,3 +209,8 @@ __marimo__/
 
 .venv/
 
+# Local env files (explicit)
+.env.local
+*.env.local
+.env.*.local
+/frontend/.env.local

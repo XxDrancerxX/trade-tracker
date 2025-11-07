@@ -1,6 +1,6 @@
 ## Backend Setup: Using Python Virtual Environments (.venv)
 
-👉 See detailed developer notes in [noteBookProject.md](./noteBookProject.md)
+👉 See detailed developer notes in [noteBookProject.md](./noteBookProjectBackEnd.md)
 👉 In plain editor mode, Ctrl+Click (or Cmd+Click on Mac) should open the file.
 👉 In Markdown Preview (Ctrl+Shift+V), clicking the link opens the file inside VS Code too.
 
