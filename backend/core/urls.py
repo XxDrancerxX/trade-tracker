@@ -97,7 +97,10 @@ def me_view(request):
 # You get a pair of tokens so the client can call APIs (access) and later refresh (refresh) without asking for credentials again.
 urlpatterns = [
     path("", home_view, name="home"), # ✅ Root endpoint
-    path("health/", health_view, name="health"),  # ✅ Health check endpoint
+    path("health/", health_view, name="health"),  # ✅ Health check endpoint (root)
+    # ensure tests and infra can hit /api/health (with and without trailing slash)
+    path("api/health", health_view, name="api_health"),
+    path("api/health/", health_view, name="api_health_slash"),    
     path("api/auth/token/", TokenObtainPairView.as_view(), name="token_obtain_pair"), # ✅ JWT token obtain endpoint
     # TokenObtainPairView is a built-in view from Simple JWT that provides an endpoint for obtaining JWT access and refresh tokens.
     # Internally uses a serializer (TokenObtainPairView) to check username/password and to build the tokens.
