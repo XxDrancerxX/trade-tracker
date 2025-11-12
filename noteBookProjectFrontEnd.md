@@ -110,3 +110,129 @@ const API_URL = import.meta.env.VITE_API_URL;
 │
 ├── .gitignore
 └── README.md
+
+# 🧠 Issue 002 — CORS + Backend Auth Endpoints Verified
+
+## 🎯 Goal
+Enable secure communication between the React (Vite) frontend and Django backend using JWT authentication and proper CORS configuration.
+
+---
+
+## ⚙️ Step-by-step summary
+
+### 1) Configured JWT authentication
+- Installed and enabled djangorestframework-simplejwt.
+- Added auth endpoints:
+  - `POST /api/auth/token/` → obtain `{ "access", "refresh" }`
+  - `POST /api/auth/token/refresh/` → renew access token
+  - `GET /api/me/` → return authenticated user data
+
+- REST framework settings (in `settings.py`):
+```py
+REST_FRAMEWORK = {
+    "DEFAULT_AUTHENTICATION_CLASSES": [
+        "rest_framework_simplejwt.authentication.JWTAuthentication",
+    ],
+    "DEFAULT_PERMISSION_CLASSES": [
+        "rest_framework.permissions.IsAuthenticated",
+    ],
+}
+```
+
+---
+
+### 2) Set up CORS & CSRF for development
+- Installed `django-cors-headers` and added to settings:
+```py
+INSTALLED_APPS = [
+    "corsheaders",
+    ...
+]
+
+MIDDLEWARE = [
+    "corsheaders.middleware.CorsMiddleware",
+    "django.middleware.common.CommonMiddleware",
+    ...
+]
+```
+
+- .env configuration (example):
+```env
+FRONTEND_URLS=https://<vite-url>,http://localhost:5173
+```
+
+- Loaded dynamically in `settings.py`:
+```py
+CORS_ALLOWED_ORIGINS = FRONTEND_URLS
+CSRF_TRUSTED_ORIGINS = FRONTEND_URLS + ["https://*.app.github.dev"]
+CORS_ALLOW_CREDENTIALS = True
+```
+
+Note: origins must be scheme + host (no path or trailing slash). Example valid origin:
+`https://supreme-space-orbit-...-5173.app.github.dev`
+
+---
+
+### 3) Verified endpoints with curl
+
+- Token request:
+```bash
+curl -X POST "<backend-url>/api/auth/token/" \
+  -H "Content-Type: application/json" \
+  -d '{"username":"superuser","password":"123456"}'
+# → returns {"access":"...","refresh":"..."}
+```
+
+- Protected route:
+```bash
+curl -H "Authorization: Bearer <ACCESS_TOKEN>" \
+  "<backend-url>/api/me/"
+# → returns authenticated user JSON
+```
+
+---
+
+### 4) Frontend integration test
+- Added `frontend/.env.local`:
+```env
+VITE_API_URL=https://<backend-url>
+```
+
+- Quick browser test from console:
+```js
+const API_URL = "https://<backend-url>";
+
+fetch(`${API_URL}/api/auth/token/`, {
+  method: "POST",
+  headers: { "Content-Type": "application/json" },
+  body: JSON.stringify({ username: "superuser", password: "123456" }),
+})
+  .then(r => r.json())
+  .then(console.log);
+```
+Result: no CORS/preflight errors and valid token response.
+
+---
+
+## 🧩 What this enables
+- Secure JWT-based login and session handling.
+- Frontend can safely call protected Django APIs.
+- Proper cross-origin setup for Codespaces and localhost development.
+- Foundation for adding an AuthProvider and protected routes in React.
+
+---
+
+## ✅ Acceptance criteria
+- [x] `/api/auth/token/` reachable  
+- [x] `/api/auth/token/refresh/` reachable  
+- [x] `/api/me/` returns user with valid token  
+- [x] CORS & CSRF configured for Vite dev URL  
+- [x] No CORS / preflight errors in browser  
+- [x] Docs updated (`.env.example`, README)
+
+---
+
+## 💡 Key concept
+JWT tokens are compact, signed JSON objects the backend issues and validates on each request. CORS is a browser-enforced policy that must be configured on the backend to allow your frontend origin(s) to call the API safely.
+
+---

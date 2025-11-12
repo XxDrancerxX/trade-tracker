@@ -17,6 +17,8 @@ python manage.py check
 (Add the language after ``` for syntax highlighting.)
 
 ### Quotes / callouts
+
+
 ```md
 > **Note:** DEBUG is False in CI to catch config issues.
 > **Tip:** Use `pytest --cache-clear` if test selection seems off.
