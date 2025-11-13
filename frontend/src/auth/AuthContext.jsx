@@ -1,118 +1,90 @@
-import React, { createContext, useContext, useEffect, useMemo, useState } from "react"; 
-import { apiFetch } from "/apiClient";
+// filepath: /workspaces/trade-tracker/frontend/src/auth/AuthContext.jsx
+// Auth context using secure HTTP-only cookies set by the backend.
+// Frontend no longer reads/writes tokens; it just triggers login/logout
+// and asks `/api/me/` who the current user is.
 
-// Storage keys (single source of truth)
-// the tt. prefix helps avoid collisions with other apps that might use localStorage
-const LS_ACCESS = "tt.accessToken"; // the key under which the access token is stored in localStorage
-const LS_REFRESH = "tt.refreshToken"; // the key under which the refresh token is stored in localStorage
+import React, {
+  createContext,
+  useContext,
+  useEffect,
+  useMemo,
+  useState,
+} from "react";
+import { apiFetch } from "../apiClient";
 
-const AuthContext = createContext(null); // creates a React Context object with a default value of null.
+const AuthContext = createContext(null);
 
 export function AuthProvider({ children }) {
-  const [accessToken, setAccessToken] = useState(() => localStorage.getItem(LS_ACCESS) || null);
-  const [refreshToken, setRefreshToken] = useState(() => localStorage.getItem(LS_REFRESH) || null);
   const [user, setUser] = useState(null);
-  const [isLoading, setLoading] = useState(true); // loading bootstrap/session-restore
+  const [isLoading, setLoading] = useState(true); // tracks bootstrap + login
 
-  // -- Helpers to persist/clear tokens -----------------------------
-  const persistTokens = (access, refresh) => {
-    setAccessToken(access);
-    setRefreshToken(refresh ?? null);
-    if (access) localStorage.setItem(LS_ACCESS, access); else localStorage.removeItem(LS_ACCESS);
-    if (refresh) localStorage.setItem(LS_REFRESH, refresh); else localStorage.removeItem(LS_REFRESH);
-  };
-
-  const clearSession = () => {
-    persistTokens(null, null);
-    setUser(null);
-  };
-
-  // -- Core API calls ----------------------------------------------
-  async function fetchMe(withAccess) {
-    const res = await apiFetch("/api/me/", {}, withAccess);
-    return res; // apiClient already parsed JSON
+  // Helper: fetch current user using cookie-based auth
+  async function fetchMe() {
+    // Cookies are sent automatically by apiFetch via credentials: "include"
+    const res = await apiFetch("/api/me/");
+    return res;
   }
 
-  async function refreshAccess(withRefresh) {
-    const res = await apiFetch("/api/auth/token/refresh/", {
-      method: "POST",
-      body: JSON.stringify({ refresh: withRefresh }),
-    });
-    // res is already JSON { access: "..." }
-    return res?.access;
-  }
-
-  // -- Public actions ----------------------------------------------
+  // Public: login with username/password.
+  // Backend is responsible for setting HTTP-only cookies (access/refresh).
   async function login(username, password) {
     setLoading(true);
     try {
-      // 1) get tokens
-      const tokens = await apiFetch("/api/auth/token/", {
+      // 1) Hit login endpoint. Body as plain object; apiFetch JSON-encodes.
+      await apiFetch("/api/auth/token/", {
         method: "POST",
-        body: JSON.stringify({ username, password }),
+        body: { username, password },
       });
-      // tokens: { access, refresh }
-      persistTokens(tokens.access, tokens.refresh);
 
-      // 2) fetch user
-      const me = await fetchMe(tokens.access);
+      // 2) After cookies set, load user.
+      const me = await fetchMe();
       setUser(me);
       return { ok: true };
     } catch (err) {
-      // wrong credentials, network error, etc.
-      clearSession();
+      // This covers wrong credentials, network errors, etc.
+      setUser(null);
       return { ok: false, error: err };
     } finally {
       setLoading(false);
     }
   }
 
-  function logout() {
-    clearSession();
+  // Public: logout.
+  // Backend should clear cookies on this route (adjust path to your backend).
+  async function logout() {
+    try {
+      await apiFetch("/api/auth/logout/", {
+        method: "POST",
+      });
+    } catch (err) {
+      // We still clear local state even if backend fails, to avoid a stuck UI.
+    }
+    setUser(null);
   }
 
-  // -- Bootstrap on first mount: restore session if possible -------
+  // Bootstrap: on first mount, try to restore session from cookies.
   useEffect(() => {
     let cancelled = false;
+
     async function bootstrap() {
       setLoading(true);
       try {
-        if (!accessToken) {
-          // no session saved
-          return;
-        }
-        // Try /api/me with current access token
         try {
-          const me = await fetchMe(accessToken);
+          const me = await fetchMe();
           if (!cancelled) setUser(me);
         } catch (err) {
-          // If unauthorized and we have refresh, try to refresh once
-          if ((err.status === 401 || err.status === 403) && refreshToken) {
-            try {
-              const newAccess = await refreshAccess(refreshToken);
-              if (newAccess) {
-                persistTokens(newAccess, refreshToken);
-                const me = await fetchMe(newAccess);
-                if (!cancelled) setUser(me);
-              } else {
-                // refresh failed
-                clearSession();
-              }
-            } catch {
-              clearSession();
-            }
-          } else {
-            clearSession();
-          }
+          // 401/403 means "not logged in" or cookie invalid.
+          if (!cancelled) setUser(null);
         }
       } finally {
         if (!cancelled) setLoading(false);
       }
     }
+
     bootstrap();
-    return () => { cancelled = true; };
-    // Only run on mount; tokens are already in state from localStorage
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+    return () => {
+      cancelled = true;
+    };
   }, []);
 
   const value = useMemo(
@@ -121,13 +93,13 @@ export function AuthProvider({ children }) {
       isLoading,
       login,
       logout,
-      // (optional) you can expose tokens if you need to call apiClient elsewhere
-      accessToken,
     }),
-    [user, isLoading, accessToken]
+    [user, isLoading],
   );
 
-  return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
+  return (
+    <AuthContext.Provider value={value}>{children}</AuthContext.Provider>
+  );
 }
 
 export function useAuth() {

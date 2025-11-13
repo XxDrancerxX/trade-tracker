@@ -4,10 +4,10 @@
 //throws on non-ok responses (including parsed error body), and returns parsed JSON or text for successful responses.// filepath: /workspaces/trade-tracker/frontend/src/apiClient.js
 import { API_URL } from "./config";
 
-export async function apiFetch(path, options = {}, accessToken) {
+export async function apiFetch(path, options = {}) {
   // path is the endpoint path (e.g., "/trades")
   // options is the fetch options (method, headers, body, etc.)
-  // accessToken is an optional bearer token for Authorization header
+
 
   // Work on a shallow copy so we don't mutate caller's object
   const opts = { ...options }; // let the function modify opts freely before passing to fetch.
@@ -50,11 +50,6 @@ export async function apiFetch(path, options = {}, accessToken) {
   // Start with caller headers (caller can override defaults)
   const headers = { ...headersFromOptions };
 
-  // Add Authorization if accessToken provided and caller didn't set Authorization
-  const hasAuth = Object.keys(headers).some((k) => k.toLowerCase() === "authorization");
-  if (accessToken && !hasAuth) {
-    headers.Authorization = `Bearer ${accessToken}`;
-  }
 
   // Only set Content-Type when we are sending JSON and caller didn't set it
   if (shouldStringify && !hasContentType) {
@@ -64,6 +59,11 @@ export async function apiFetch(path, options = {}, accessToken) {
 
   // Attach normalized headers to options passed to fetch
   opts.headers = headers;
+
+  // Critical for cookie-based auth: always send cookies unless caller overrides.
+  if (typeof opts.credentials === "undefined") {
+    opts.credentials = "include";
+  }
 
   const res = await fetch(`${API_URL}${path}`, opts); // Make the fetch call to the full URL
 
