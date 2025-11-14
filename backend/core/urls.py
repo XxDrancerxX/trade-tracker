@@ -132,8 +132,6 @@ def health(_request):
     )
 
 
-def home(_request):
-    return JsonResponse({"message": "✅ Welcome to the Trade Tracker API!"})
 
 
 urlpatterns = [
