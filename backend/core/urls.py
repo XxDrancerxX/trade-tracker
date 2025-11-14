@@ -24,6 +24,14 @@ from .auth_cookies import (
 )
 from api.views import SpotTradeViewSet, FuturesTradeViewSet
 
+def health(_request):
+    return JsonResponse(
+        {"status": "ok", "service": "trade-tracker-backend", "version": "0.0.1"}
+    )
+
+
+def home(_request):
+    return JsonResponse({"message": "✅ Welcome to the Trade Tracker API!"})
 
 User = get_user_model()
 
@@ -126,14 +134,6 @@ router.register(r"spot-trades", SpotTradeViewSet, basename="spottrade")
 router.register(r"futures-trades", FuturesTradeViewSet, basename="futurestrade")
 
 
-def health(_request):
-    return JsonResponse(
-        {"status": "ok", "service": "trade-tracker-backend", "version": "0.0.1"}
-    )
-
-
-def home(_request):
-    return JsonResponse({"message": "✅ Welcome to the Trade Tracker API!"})
 
 
 urlpatterns = [
