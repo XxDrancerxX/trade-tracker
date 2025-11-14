@@ -111,7 +111,7 @@ const API_URL = import.meta.env.VITE_API_URL;
 ├── .gitignore
 └── README.md
 
-# 🧠 Issue 002 — CORS + Backend Auth Endpoints Verified
+# 🧠 Fe 002 — CORS + Backend Auth Endpoints Verified
 
 ## 🎯 Goal
 Enable secure communication between the React (Vite) frontend and Django backend using JWT authentication and proper CORS configuration.
@@ -236,3 +236,208 @@ Result: no CORS/preflight errors and valid token response.
 JWT tokens are compact, signed JSON objects the backend issues and validates on each request. CORS is a browser-enforced policy that must be configured on the backend to allow your frontend origin(s) to call the API safely.
 
 ---
+
+
+
+
+# FE-003 — AuthProvider (Cookie-based)
+
+Goal
+- Build a frontend AuthProvider that:
+  - Logs in via /api/auth/token/
+  - Knows current user via /api/me/
+  - Restores session on page refresh
+  - Logs out via /api/auth/logout/
+  - Centralizes auth state & API calls
+- Security variant: JWT access + refresh live in HttpOnly cookies (not localStorage). React only sees { user, isLoading }.
+
+## Backend pieces
+
+1) Cookie helpers (auth_cookies.py)
+- set_access_cookie(resp, access) → sets tt_access
+- set_refresh_cookie(resp, refresh) → sets tt_refresh
+- Flags: HttpOnly, Secure, SameSite=None, Path=/
+  - Not readable by JS
+  - Sent on cross-origin with credentials: "include"
+
+2) Cookie-based JWT auth (authentication.py)
+- CookieJWTAuthentication(JWTAuthentication):
+  - Reads tt_access from request.COOKIES
+  - If valid → sets request.user
+  - If missing/invalid → None or AuthenticationFailed
+- Registered in REST_FRAMEWORK["DEFAULT_AUTHENTICATION_CLASSES"]
+
+3) Auth views (core/urls.py)
+- POST /api/auth/token/ (CookieTokenObtainPairView)
+  - Validates credentials, issues tokens
+  - set_access_cookie + set_refresh_cookie
+  - Returns { ok: true }
+- POST /api/auth/token/refresh/ (CookieTokenRefreshView)
+  - Reads refresh from body or tt_refresh cookie
+  - Issues new tt_access (and possibly tt_refresh)
+- POST /api/auth/logout/ (logout_view)
+  - Clears tt_access + tt_refresh
+  - Returns { ok: true }
+- GET /api/me/
+  - @IsAuthenticated, returns { id, username, email }
+  - Auth via CookieJWTAuthentication
+
+## Frontend pieces
+
+1) config.js
+- export const API_URL = import.meta.env.VITE_API_URL
+- .env.local example: VITE_API_URL="https://...-8000.app.github.dev"
+
+2) apiClient.js
+- apiFetch(path, options = {})
+  - URL: ${API_URL}${path}
+  - credentials: "include" (send/receive cookies)
+  - Auto-JSON for plain objects (Content-Type set as needed)
+  - Parses JSON responses
+  - Throws structured Error on non-2xx: err.status, err.body
+- No token args; auth via cookies only
+
+3) AuthContext.jsx
+- State:
+  - user (object | null)
+  - isLoading (boolean)
+- Functions:
+  - fetchMe() → GET /api/me/
+  - login(username, password)
+    - POST /api/auth/token/ with { username, password }
+    - Backend sets tt_access + tt_refresh
+    - Calls fetchMe(), sets user
+    - Returns { ok: true } or { ok: false, error }
+  - logout()
+    - POST /api/auth/logout/
+    - Clears user
+- Bootstrap (useEffect)
+  - On mount → fetchMe()
+    - 200 → set user
+    - 401/403 → user = null
+  - isLoading toggled around calls
+- useAuth()
+  - Exposes { user, isLoading, login, logout }
+
+4) main.jsx
+- Wrap app:
+  - <AuthProvider><App /></AuthProvider>
+
+5) Dev Auth Debug UI (App.jsx)
+- Shows status (Logged in / Logged out / Loading…)
+- Displays user info
+- Login form + Logout button
+- Confirms cookies + /api/me/ work end-to-end
+
+## End-to-end workflow
+
+1) App load (refresh)
+- <AuthProvider> mounts → apiFetch("/api/me/") with credentials
+- Browser sends tt_access (if present)
+- Backend authenticates via cookie → returns user
+- Frontend sets user; else 401 → user = null
+
+2) Login
+- login → POST /api/auth/token/ with credentials
+- Backend sets tt_access + tt_refresh cookies
+- fetchMe → sets user
+
+3) Authenticated API calls (later)
+- Any apiFetch("/api/spot-trades/") includes cookies automatically
+
+4) Logout
+- POST /api/auth/logout/ → backend clears cookies
+- Frontend sets user = null
+
+5) (Later) Refresh
+- /api/auth/token/refresh/ reads tt_refresh cookie
+- Issues new tt_access (and possibly tt_refresh)
+- Client can call on 401 then retry
+
+## Why this design
+
+- Security: No tokens in JS/localStorage; HttpOnly + Secure + SameSite=None cookies
+- Simplicity: Frontend only cares about user + 3 endpoints
+- Extensible: New routes use useAuth() + apiFetch() without token handling
+
+## Quick verification checklist
+
+- [ ] Login response includes Set-Cookie for tt_access/tt_refresh
+- [ ] apiFetch sends credentials: "include"
+- [ ] /api/me/ returns 200 with cookies (no Authorization header)
+- [ ] Logout clears cookies and /api/me/ returns 401
+
+
+1️⃣ CLEAN ASCII DIAGRAM (Workflow)
+
+          ┌─────────────────────────────┐
+          │         React App           │
+          │     (AuthContext.jsx)      │
+          └──────────────┬──────────────┘
+                         │
+                         │ 1) User clicks "Login"
+                         ▼
+              ┌──────────────────────────┐
+              │  POST /api/auth/token/   │
+              │  body:{username,password}│
+              └──────────────┬───────────┘
+                             │
+                             │ Backend validates login
+                             ▼
+        ┌──────────────────────────────────────────────────┐
+        │                   Django Backend                  │
+        │      CookieTokenObtainPairView (SimpleJWT)       │
+        ├──────────────────────────────────────────────────┤
+        │ Generates:                                        │
+        │   access_token  → short-lived                     │
+        │   refresh_token → long-lived                      │
+        └──────────────┬────────────────────────────────────┘
+                       │
+                       │ Sets cookies in response:
+                       │   Set-Cookie: tt_access=...  (HttpOnly)
+                       │   Set-Cookie: tt_refresh=... (HttpOnly)
+                       ▼
+        ┌──────────────────────────────────────────────────┐
+        │ Browser stores cookies securely:                 │
+        │   - cannot be read by JS                         │
+        │   - automatically attached on every request      │
+        └──────────────┬────────────────────────────────────┘
+                       │
+                       │ 2) React calls /api/me/ to load user
+                       ▼
+           ┌──────────────────────────────────────┐
+           │ GET /api/me/                         │
+           │ cookies: tt_access sent automatically │
+           └──────────────┬───────────────────────┘
+                          │
+                          ▼
+         ┌──────────────────────────────────────────────────┐
+         │ Django authenticates via CookieJWTAuthentication │
+         │  - reads tt_access                               │
+         │  - validates JWT                                 │
+         │  - attaches request.user                         │
+         └──────────────┬────────────────────────────────────┘
+                        │
+                        ▼
+         ┌──────────────────────────────────────────────┐
+         │ React receives user JSON: {id, username, ...} │
+         │ AuthProvider sets user in state               │
+         └──────────────────────────────────────────────┘
+
+
+─────────────────────────────────────────────────────────────
+                   SESSION RESTORE (page refresh)
+─────────────────────────────────────────────────────────────
+
+`AuthProvider` mounts → calls `/api/me/` again  
+Cookies auto-sent → backend validates → React gets user again  
+
+
+─────────────────────────────────────────────────────────────
+                           LOGOUT
+─────────────────────────────────────────────────────────────
+React → POST /api/auth/logout/  
+Backend → clears tt_access + tt_refresh cookies  
+React → sets user = null  
+
+─────────────────────────────────────────────────────────────

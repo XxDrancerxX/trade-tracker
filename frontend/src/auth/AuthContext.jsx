@@ -4,15 +4,15 @@
 // and asks `/api/me/` who the current user is.
 
 import React, {
-  createContext,
+  createContext, // Create a context for authentication
   useContext,
   useEffect,
   useMemo,
   useState,
 } from "react";
-import { apiFetch } from "../apiClient";
+import { apiFetch } from "../apiClient"; 
 
-const AuthContext = createContext(null);
+const AuthContext = createContext(null); // Initial value is null
 
 export function AuthProvider({ children }) {
   const [user, setUser] = useState(null);

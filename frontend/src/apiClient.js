@@ -3,6 +3,14 @@
 //apiFetch normalizes headers, conditionally sets Content-Type, auto-stringifies plain objects, adds Authorization when needed,
 //throws on non-ok responses (including parsed error body), and returns parsed JSON or text for successful responses.// filepath: /workspaces/trade-tracker/frontend/src/apiClient.js
 import { API_URL } from "./config";
+/**
+ * apiFetch(path, options?)
+ *
+ * - Prefixes API_URL.
+ * - Sends credentials (cookies).
+ * - Auto JSON-stringifies plain objects if no Content-Type set.
+ * - Parses JSON responses; throws on non-2xx with { status, body }.
+ */
 
 export async function apiFetch(path, options = {}) {
   // path is the endpoint path (e.g., "/trades")
