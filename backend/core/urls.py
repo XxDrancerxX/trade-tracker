@@ -1,116 +1,158 @@
+
 """
 URL configuration for core project.
-
-The `urlpatterns` list routes URLs to views. For more information please see:
-    https://docs.djangoproject.com/en/5.2/topics/http/urls/
-Examples:
-Function views
-    1. Add an import:  from my_app import views
-    2. Add a URL to urlpatterns:  path('', views.home, name='home')
-Class-based views
-    1. Add an import:  from other_app.views import Home
-    2. Add a URL to urlpatterns:  path('', Home.as_view(), name='home')
-Including another URLconf
-    1. Import the include() function: from django.urls import include, path
-    2. Add a URL to urlpatterns:  path('blog/', include('blog.urls'))
 """
-from django.http import JsonResponse # to return JSON responses in our views.
+
 from django.contrib import admin
-from django.urls import path,include
+from django.http import JsonResponse
+from django.urls import include, path
+
+from django.contrib.auth import get_user_model
+
+from rest_framework import serializers, status
 from rest_framework.decorators import api_view, permission_classes
 from rest_framework.permissions import AllowAny, IsAuthenticated
-from rest_framework.response import Response # to create HTTP responses with data.
-from rest_framework.routers import DefaultRouter 
-from api.views import SpotTradeViewSet, FuturesTradeViewSet
-from rest_framework_simplejwt.views import (
-    TokenObtainPairView,
-    TokenRefreshView,
+from rest_framework.response import Response
+from rest_framework.routers import DefaultRouter
+from rest_framework_simplejwt.views import TokenObtainPairView, TokenRefreshView
+
+from .auth_cookies import (
+    clear_access_cookie,
+    clear_refresh_cookie,
+    set_access_cookie,
+    set_refresh_cookie,
 )
+from api.views import SpotTradeViewSet, FuturesTradeViewSet
 
-# ---------- Routers for your existing viewsets ---------- #
-router = DefaultRouter() # => This router automatically generates URL patterns for our viewsets. We register our viewsets with specific URL prefixes.
-router.register(r'spot-trades', SpotTradeViewSet, basename='spottrade' ) # => This line registers the SpotTradeViewSet with the router. The URL prefix 'spot-trades' means that all endpoints for this viewset will be accessible under /api/spot-trades/. The basename is used to name the URL patterns.
-router.register(r'futures-trades', FuturesTradeViewSet, basename='futurestrade') # => This line registers the FuturesTradeViewSet with the router. The URL prefix 'futures-trades' means that all endpoints for this viewset will be accessible under /api/futures-trades/. The basename is used to name the URL patterns.
-
-# ---------- Utility views ---------- ---------- #
-@api_view(["GET"]) #decorator that that turns a normal Django function view into a DRF function-based API view.Specifies that this view only accepts GET requests.
-@permission_classes([AllowAny])# DRF decorator that  sets the permission classes for this view to AllowAny, meaning anyone can access it.
-def home_view(_request):
-    """
-    Simple root endpoint:
-    Confirms the API is up and gives a friendly message.
-    """
-    return Response({"message": "✅ Welcome to the Trade Tracker API!"})
-
-
-@api_view(["GET"])
-@permission_classes([AllowAny])
-def health_view(_request):
-    """
-    Lightweight health check.
-    Keep it free of DB / external calls so infra & tests can rely on it.
-    """
-    return Response(
-        {
-            "status": "ok",
-            "service": "trade-tracker-backend",
-            "version": "0.0.1",
-        }
+def health(_request):
+    return JsonResponse(
+        {"status": "ok", "service": "trade-tracker-backend", "version": "0.0.1"}
     )
+
+
+def home(_request):
+    return JsonResponse({"message": "✅ Welcome to the Trade Tracker API!"})
+
+User = get_user_model()
+
+
+# ---------- /api/me/ -------------------------------------------------
+class MeSerializer(serializers.ModelSerializer):
+    """
+    Minimal representation of the current user.
+    """
+
+    class Meta:
+        model = User
+        fields = ("id", "username", "email")
 
 
 @api_view(["GET"])
 @permission_classes([IsAuthenticated])
 def me_view(request):
     """
-    Returns basic info about the authenticated user.
-    Frontend will call this after login to hydrate session.
+    GET /api/me/
+    Returns current authenticated user using CookieJWTAuthentication.
     """
-    u = request.user # => Retrieves the currently authenticated user from the request.
-    return Response(
-        {
-            "id": u.id,
-            "username": u.username,
-            "email": u.email,
-        }
-    )
+    serializer = MeSerializer(request.user)
+    return Response(serializer.data)
 
 
-# ---------- URL patterns ---------- ---------- #
-# Why two token endpoints?
-# /api/auth/token/ (TokenObtainPairView)
-# Accepts credentials (username/password) and returns a token pair: { "access": "<jwt>", "refresh": "<jwt>" }.
-# You use this to log in and get tokens.
-# /api/auth/token/refresh/ (TokenRefreshView)
-# Accepts the refresh token and returns a new access token (and optionally a rotated refresh).
-# Purpose: keep access tokens short-lived (safer) while allowing the client to obtain new access tokens without re-sending user credentials.
+# ---------- Auth endpoints (cookie-based) ----------------------------
+class CookieTokenObtainPairView(TokenObtainPairView):
+    """
+    Login: validates username/password, then sets HttpOnly access + refresh cookies.
+    Response body is just { "ok": true }.
+    """
 
-# TokenObtainPairView (POST /api/auth/token/)
-# Use when the user signs in with credentials.
+    permission_classes = [AllowAny]
 
-# TokenRefreshView (POST /api/auth/token/refresh/)
-# Use when the access token expired (or is about to).
+    def post(self, request, *args, **kwargs):
+        resp = super().post(request, *args, **kwargs)  # SimpleJWT: access + refresh
+        data = resp.data
+        access = data.get("access")
+        refresh = data.get("refresh")
 
-# Access tokens are short-lived for safety. Refresh tokens are longer-lived and used only to get new access tokens. 
-# This avoids sending user credentials frequently and limits exposure if an access token is leaked.
+        out = Response({"ok": True}, status=resp.status_code)
+        if access:
+            set_access_cookie(out, access)
+        if refresh:
+            set_refresh_cookie(out, refresh)
+        return out
 
-# You get a pair of tokens so the client can call APIs (access) and later refresh (refresh) without asking for credentials again.
+
+class CookieTokenRefreshView(TokenRefreshView):
+    """
+    Refresh: reads refresh token from cookie if not in body,
+    then sets a new HttpOnly access cookie (and refresh if rotation enabled).
+    """
+
+    permission_classes = [AllowAny]
+
+    def post(self, request, *args, **kwargs):
+        if "refresh" not in request.data:
+            cookie_refresh = request.COOKIES.get("tt_refresh")
+            if cookie_refresh:
+                try:
+                    data = request.data.copy()
+                except Exception:
+                    data = dict(request.data)
+                data["refresh"] = cookie_refresh
+                # DRF caches parsed data on _full_data
+                request._full_data = data
+
+        resp = super().post(request, *args, **kwargs)
+        data = resp.data
+
+        out = Response({"ok": True}, status=resp.status_code)
+
+        access = data.get("access")
+        if access:
+            set_access_cookie(out, access)
+
+        if "refresh" in data:
+            set_refresh_cookie(out, data["refresh"])
+
+        return out
+
+
+@api_view(["POST"])
+@permission_classes([AllowAny])
+def logout_view(_request):
+    """
+    Logout: clears both access and refresh cookies.
+    """
+    out = Response({"ok": True}, status=status.HTTP_200_OK)
+    clear_access_cookie(out)
+    clear_refresh_cookie(out)
+    return out
+
+
+# ---------- Routers / misc endpoints --------------------------------
+router = DefaultRouter()
+router.register(r"spot-trades", SpotTradeViewSet, basename="spottrade")
+router.register(r"futures-trades", FuturesTradeViewSet, basename="futurestrade")
+
+
+
+
 urlpatterns = [
-    path("", home_view, name="home"), # ✅ Root endpoint
-    path("health/", health_view, name="health"),  # ✅ Health check endpoint (root)
-    # ensure tests and infra can hit /api/health (with and without trailing slash)
-    path("api/health", health_view, name="api_health"),
-    path("api/health/", health_view, name="api_health_slash"),    
-    path("api/auth/token/", TokenObtainPairView.as_view(), name="token_obtain_pair"), # ✅ JWT token obtain endpoint
-    # TokenObtainPairView is a built-in view from Simple JWT that provides an endpoint for obtaining JWT access and refresh tokens.
-    # Internally uses a serializer (TokenObtainPairView) to check username/password and to build the tokens.
-    # as_view() converts the class-based(TokenObtainPairSerializer) view into a callable view function.
-    path("api/auth/token/refresh/", TokenRefreshView.as_view(), name="token_refresh"), # ✅ JWT token refresh endpoint
-    # TokenRefreshView is a built-in view from Simple JWT that provides an endpoint for refreshing JWT access tokens using a valid refresh token.
-    # as_view() converts the class-based(TokenRefreshSerializer) view into a callable view function
-    path("api/me/", me_view, name="me"), # ✅ Authenticated user info endpoint
-    path("admin/", admin.site.urls),      # ✅ Keeps the admin panel! 
-    path("api/", include(router.urls)),   # ✅ API routes for spot and futures trades/ REST API at /api/... routes (viewsets)
+    path("", home),
+    path("api/health", health),
+
+    # Auth endpoints
+    path("api/auth/token/", CookieTokenObtainPairView.as_view(), name="token_obtain_pair"),
+    path(
+        "api/auth/token/refresh/",
+        CookieTokenRefreshView.as_view(),
+        name="token_refresh",
+    ),
+    path("api/auth/logout/", logout_view, name="logout"),
+
+    # Current user
+    path("api/me/", me_view, name="me"),
+
+    # Admin + API router
+    path("admin/", admin.site.urls),
+    path("api/", include(router.urls)),
 ]
-
-

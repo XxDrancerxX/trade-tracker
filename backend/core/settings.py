@@ -16,6 +16,7 @@ https://docs.djangoproject.com/en/5.2/ref/settings/
 from pathlib import Path
 from dotenv import load_dotenv
 import os
+from datetime import timedelta
 
 BASE_DIR = Path(__file__).resolve().parent.parent
 load_dotenv(BASE_DIR / ".env") # Load environment variables from .env file
@@ -75,6 +76,7 @@ INSTALLED_APPS = [
     "django.contrib.sessions",
     "django.contrib.messages",
     "django.contrib.staticfiles",
+    "rest_framework_simplejwt.token_blacklist",
     "api",
     "rest_framework",
     "corsheaders", # For handling CORS
@@ -85,6 +87,7 @@ INSTALLED_APPS = [
 
 REST_FRAMEWORK = {
   "DEFAULT_AUTHENTICATION_CLASSES": [
+    "core.authentication.CookieJWTAuthentication",
     "rest_framework_simplejwt.authentication.JWTAuthentication",
   ],
   "DEFAULT_PERMISSION_CLASSES": [
@@ -203,3 +206,15 @@ STATIC_URL = "static/"
 # https://docs.djangoproject.com/en/5.2/ref/settings/#default-auto-field
 
 DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
+
+# Django REST Framework Simple JWT settings
+SIMPLE_JWT = {
+    "ACCESS_TOKEN_LIFETIME": timedelta(minutes=10),
+    "REFRESH_TOKEN_LIFETIME": timedelta(days=7),
+    "ROTATE_REFRESH_TOKENS": True,  # Generate a new refresh token when the old one is used
+    "BLACKLIST_AFTER_ROTATION": True,  # Remember the old refresh tokens, so they can't be used again
+}
+
+# Cookie settings
+CSRF_COOKIE_SAMESITE = "Lax"
+SESSION_COOKIE_SAMESITE = "Lax"

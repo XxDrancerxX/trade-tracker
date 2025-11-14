@@ -1,38 +1,96 @@
-import { useState } from 'react'
-import reactLogo from './assets/react.svg'
-import viteLogo from '/vite.svg'
-import './App.css'
+// filepath: /workspaces/trade-tracker/frontend/src/App.jsx
+// "react" from node_modules/react. It exports a default object plus named exports (hooks, utilities).
+// "React" is the default export, containing the core React API. It contains element such as createElement, Fragment, useEffect, useMemo, etc.
+import React, { useState } from "react";  // useState is a named export from react to manage local component state.
+import { useAuth } from "./auth/AuthContext";
 
-const API_URL = import.meta.env.VITE_API_URL;
+function AuthDebugPanel() {
+  const { user, isLoading, login, logout } = useAuth();
+  const [username, setUsername] = useState("");
+  const [password, setPassword] = useState("");
+  const [errorMsg, setErrorMsg] = useState("");
 
-function App() {
-  console.log("API_URL from env:", API_URL); // just to verify
-  const [count, setCount] = useState(0)
+  async function handleLogin(e) {
+    e.preventDefault();
+    setErrorMsg("");
+    const res = await login(username, password);
+    if (!res.ok) {
+      // keep message simple for now; you can inspect res.error later
+      setErrorMsg("Login failed. Check credentials or network.");
+    }
+  }
+
+  async function handleLogout() {
+    setErrorMsg("");
+    await logout();
+  }
 
   return (
-    <>
-      <div>
-        <a href="https://vite.dev" target="_blank">
-          <img src={viteLogo} className="logo" alt="Vite logo" />
-        </a>
-        <a href="https://react.dev" target="_blank">
-          <img src={reactLogo} className="logo react" alt="React logo" />
-        </a>
-      </div>
-      <h1>Vite + React</h1>
-      <div className="card">
-        <button onClick={() => setCount((count) => count + 1)}>
-          count is {count}
-        </button>
-        <p>
-          Edit <code>src/App.jsx</code> and save to test HMR
-        </p>
-      </div>
-      <p className="read-the-docs">
-        Click on the Vite and React logos to learn more
+    <div style={{ maxWidth: 400, margin: "2rem auto", padding: "1rem", border: "1px solid #ddd", borderRadius: 8 }}>
+      <h2>Auth Debug Panel</h2>
+      <p>
+        <strong>Status:</strong>{" "}
+        {isLoading ? "Loading..." : user ? "Logged in" : "Logged out"}
       </p>
-    </>
-  )
+      {user && (
+        <p>
+          <strong>User:</strong> {user.username} ({user.email})
+        </p>
+      )}
+
+      {!user && (
+        <form onSubmit={handleLogin} style={{ marginTop: "1rem" }}>
+          <div style={{ marginBottom: "0.5rem" }}>
+            <label>
+              Username:
+              <input
+                type="text"
+                value={username}
+                onChange={(e) => setUsername(e.target.value)}
+                autoComplete="username"
+              />
+            </label>
+          </div>
+          <div style={{ marginBottom: "0.5rem" }}>
+            <label>
+              Password:
+              <input
+                type="password"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                autoComplete="current-password"
+              />
+            </label>
+          </div>
+          <button type="submit" disabled={isLoading}>
+            {isLoading ? "Logging in..." : "Login"}
+          </button>
+        </form>
+      )}
+
+      {user && (
+        <button
+          type="button"
+          onClick={handleLogout}
+          disabled={isLoading}
+          style={{ marginTop: "1rem" }}
+        >
+          {isLoading ? "Working..." : "Logout"}
+        </button>
+      )}
+
+      {errorMsg && (
+        <p style={{ color: "red", marginTop: "0.5rem" }}>{errorMsg}</p>
+      )}
+    </div>
+  );
 }
 
-export default App
+export default function App() {
+  return (
+    <div>
+      <h1 style={{ textAlign: "center" }}>Vite + React (Auth Test)</h1>
+      <AuthDebugPanel />
+    </div>
+  );
+}
