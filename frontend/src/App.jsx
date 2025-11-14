@@ -1,5 +1,7 @@
 // filepath: /workspaces/trade-tracker/frontend/src/App.jsx
-import React, { useState } from "react";
+// "react" from node_modules/react. It exports a default object plus named exports (hooks, utilities).
+// "React" is the default export, containing the core React API. It contains element such as createElement, Fragment, useEffect, useMemo, etc.
+import React, { useState } from "react";  // useState is a named export from react to manage local component state.
 import { useAuth } from "./auth/AuthContext";
 
 function AuthDebugPanel() {
