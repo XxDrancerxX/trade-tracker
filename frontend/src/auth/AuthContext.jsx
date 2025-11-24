@@ -17,8 +17,8 @@ const AuthContext = createContext(null); //this returns a Context object with 2 
 //AuthContext.Provider: a component that supplies a value to descendants.
 // The “current value” slot (managed by React) that consumers read via useContext(AuthContext).
 
-export function AuthProvider({ children }) {
-  const [user, setUser] = useState(null);
+export function AuthProvider({ children }) { // Children are the nested components inside <AuthProvider> in the component tree.It's a special React prop hat allows components to wrap other components.
+  const [user, setUser] = useState(null); // tracks current user; null = not logged in
   const [isLoading, setLoading] = useState(true); // tracks bootstrap + login
 
   // Helper: fetch current user using cookie-based auth
