@@ -1,96 +1,79 @@
 // filepath: /workspaces/trade-tracker/frontend/src/App.jsx
 // "react" from node_modules/react. It exports a default object plus named exports (hooks, utilities).
 // "React" is the default export, containing the core React API. It contains element such as createElement, Fragment, useEffect, useMemo, etc.
-import React, { useState } from "react";  // useState is a named export from react to manage local component state.
-import { useAuth } from "./auth/AuthContext";
+// src/App.jsx
 
-function AuthDebugPanel() {
-  const { user, isLoading, login, logout } = useAuth();
-  const [username, setUsername] = useState("");
-  const [password, setPassword] = useState("");
-  const [errorMsg, setErrorMsg] = useState("");
+import React from "react";
+import { Routes, Route, Navigate } from "react-router-dom"; // React Router components for routing.
+// Routes: container for Route elements, matches the current URL to a Route.
+// Route: defines a mapping from a path to a component.
+// Navigate: component to programmatically redirect to another route.
+import { useAuth } from "./auth/AuthContext";  // Custom hook to access auth context. 
+import LoginPage from "./pages/LoginPage.jsx"; //  Login page component.
 
-  async function handleLogin(e) {
-    e.preventDefault();
-    setErrorMsg("");
-    const res = await login(username, password);
-    if (!res.ok) {
-      // keep message simple for now; you can inspect res.error later
-      setErrorMsg("Login failed. Check credentials or network.");
+function Header() {
+  //This is object destructuring, extracting user, logout, and isLoading from the object returned by useAuth().
+  const { user, logout, isLoading } = useAuth(); // Custom hook to access auth context.
+
+  async function handleLogout() {
+    try {
+      await logout(); // Call logout function from auth context
+    } catch (err) {
+      console.error("Logout error:", err);
     }
   }
 
-  async function handleLogout() {
-    setErrorMsg("");
-    await logout();
-  }
+  return (
+    <header style={{ padding: "1rem 2rem", borderBottom: "1px solid #ddd" }}>
+      <span style={{ fontWeight: "bold", marginRight: "1rem" }}>
+        Trade Tracker
+      </span>
+
+      {isLoading && <span>Loading session…</span>} {/*If isLoading is true, show loading message */}
+
+      {!isLoading && !user && (
+        <a href="/login">Login</a>  // If not loading and no user(both conditions have to be true),show login link
+      )}
+
+      {!isLoading && user && ( // If not loading and user is logged in, show username and logout button
+        <> {/* This is a React Fragment - a wrapper that doesn't create an actual HTML element.  */ }
+          <span style={{ marginRight: "1rem" }}>
+            Logged in as <strong>{user.username}</strong>
+          </span>
+          <button onClick={handleLogout}>Logout</button> {/* Logout button triggers handleLogout */}
+        </>
+      )}
+    </header>
+  );
+}
+
+function HomePage() {
+  const { user, isLoading } = useAuth();
 
   return (
-    <div style={{ maxWidth: 400, margin: "2rem auto", padding: "1rem", border: "1px solid #ddd", borderRadius: 8 }}>
-      <h2>Auth Debug Panel</h2>
-      <p>
-        <strong>Status:</strong>{" "}
-        {isLoading ? "Loading..." : user ? "Logged in" : "Logged out"}
-      </p>
-      {user && (
-        <p>
-          <strong>User:</strong> {user.username} ({user.email})
-        </p>
-      )}
-
-      {!user && (
-        <form onSubmit={handleLogin} style={{ marginTop: "1rem" }}>
-          <div style={{ marginBottom: "0.5rem" }}>
-            <label>
-              Username:
-              <input
-                type="text"
-                value={username}
-                onChange={(e) => setUsername(e.target.value)}
-                autoComplete="username"
-              />
-            </label>
-          </div>
-          <div style={{ marginBottom: "0.5rem" }}>
-            <label>
-              Password:
-              <input
-                type="password"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                autoComplete="current-password"
-              />
-            </label>
-          </div>
-          <button type="submit" disabled={isLoading}>
-            {isLoading ? "Logging in..." : "Login"}
-          </button>
-        </form>
-      )}
-
-      {user && (
-        <button
-          type="button"
-          onClick={handleLogout}
-          disabled={isLoading}
-          style={{ marginTop: "1rem" }}
-        >
-          {isLoading ? "Working..." : "Logout"}
-        </button>
-      )}
-
-      {errorMsg && (
-        <p style={{ color: "red", marginTop: "0.5rem" }}>{errorMsg}</p>
+    <div style={{ padding: "2rem" }}>
+      <h1>Home</h1>
+      {isLoading && <p>Checking session…</p>}
+      {!isLoading && !user && <p>You are not logged in.</p>}
+      {!isLoading && user && (
+        <p>Welcome back, <strong>{user.username}</strong>!</p>
       )}
     </div>
   );
 }
 
-export default function App() {
+function App() {
   return (
-    <div>
-      <h1 style={{ textAlign: "center" }}>Vite + React (Auth Test)</h1>
-      <AuthDebugPanel />
-    </div>
+    <>
+      <Header />
+      <Routes>
+        <Route path="/" element={<HomePage />} />
+        <Route path="/login" element={<LoginPage />} />
+        {/* fallback */}
+        <Route path="*" element={<Navigate to="/" replace />} />
+      </Routes>
+    </>
   );
 }
+
+export default App;
