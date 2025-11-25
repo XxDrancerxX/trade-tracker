@@ -10,6 +10,10 @@ import { Routes, Route, Navigate } from "react-router-dom"; // React Router comp
 // Navigate: component to programmatically redirect to another route.
 import { useAuth } from "./auth/AuthContext";  // Custom hook to access auth context. 
 import LoginPage from "./pages/LoginPage.jsx"; //  Login page component.
+import SignupPage from "./pages/SignUpPage.jsx"; // Signup page component.
+
+
+
 
 function Header() {
   //This is object destructuring, extracting user, logout, and isLoading from the object returned by useAuth().
@@ -69,7 +73,7 @@ function App() {
       <Routes>
         <Route path="/" element={<HomePage />} />
         <Route path="/login" element={<LoginPage />} />
-        {/* fallback */}
+        <Route path="/signup" element={<SignupPage />} />
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
     </>

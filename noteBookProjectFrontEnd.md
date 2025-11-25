@@ -441,3 +441,146 @@ Backend → clears tt_access + tt_refresh cookies
 React → sets user = null  
 
 ─────────────────────────────────────────────────────────────
+# FE-004 — Login Page Workflow (Notes)
+
+## 🧩 Summary
+This feature adds a dedicated `/login` page that includes:
+- Form inputs for username and password
+- Frontend validation with inline error messages
+- Redirect on success and guard against logged-in users visiting `/login`
+- Loading states tied to `AuthProvider.isLoading`
+- Integration with the existing cookie-backed `AuthProvider`
+- Cookie-based authentication, so no tokens are exposed to JavaScript
+
+## 🏗 Frontend Pieces
+
+### `AuthProvider.jsx`
+- Holds `user`, `isLoading`, `login()`, `logout()`, `fetchMe()`
+- **On login**
+  - Calls `POST /api/auth/token/`
+  - Backend sets `tt_access`, `tt_refresh` cookies
+  - Calls `fetchMe()` → updates `user`
+- **On logout**
+  - Calls `POST /api/auth/logout/`
+  - Backend clears cookies
+  - Sets `user = null`
+
+### `apiClient.js`
+- Wrapper for `fetch`
+- Prefixes `API_URL`
+- Sends `credentials: "include"` so HttpOnly cookies flow automatically
+- Auto-JSON encodes bodies, parses JSON responses
+- Throws structured `{ status, body }` errors
+
+### `LoginPage.jsx`
+- Renders username/password inputs
+- Displays validation and backend errors
+- On submit:
+  - Calls `login(username, password)`
+  - Redirects on success
+  - Shows error message below the form on failure
+
+## 🔄 End-to-End Workflow
+1. **App load / page refresh**
+   - `<AuthProvider>` mounts → `apiFetch("/api/me/")` with credentials
+   - Browser automatically sends cookies (if present)
+   - Backend validates `tt_access` → returns user
+   - Frontend sets `user`; on 401 → `user = null`
+
+2. **Login**
+   - `LoginPage` calls `login(username, password)`
+   - `login()` steps:
+     - `POST /api/auth/token/` → backend sets `tt_access` + `tt_refresh`
+     - `fetchMe()` → `GET /api/me/`
+     - Backend authenticates via `CookieJWTAuthentication`
+     - Returns `{ id, username, ... }`
+     - `setUser(me)`; `navigate("/")`
+
+3. **Authenticated API calls (future)**
+   - Any `apiFetch("/api/spot-trades/")` includes cookies automatically
+   - Backend authenticates without an `Authorization` header
+
+4. **Logout**
+   - `POST /api/auth/logout/`
+   - Backend clears cookies (empty `Set-Cookie`)
+   - `AuthProvider.setUser(null)`; `navigate("/login")`
+
+5. **Later (refresh token flow)**
+   - Not implemented yet — planned for FE-010
+
+## 🧠 Under-the-Hood (Cookies Edition)
+- Cookies are HttpOnly: JavaScript cannot read them
+- Cookies ride on every request because of `credentials: "include"`
+- Django reads them via `CookieJWTAuthentication`
+- No token ever touches React code → strong security posture
+
+## 🖼 ASCII Diagram — Cookie Login Flow
+                        ┌────────────────────┐
+                        │     Login Page      │
+                        └─────────┬───────────┘
+                                  │
+                                  │ 1. User enters username/password
+                                  ▼
+                       ┌──────────────────────────┐
+                       │ AuthContext.login()      │
+                       └─────────┬────────────────┘
+                                  │
+                                  │ 2. POST /api/auth/token/
+                                  ▼
+                 ┌──────────────────────────────────────┐
+                 │ Django SimpleJWT Token View           │
+                 │ - Validates credentials               │
+                 │ - Sets cookies: tt_access, tt_refresh │
+                 └───────────┬───────────────────────────┘
+                             │  (cookies stored in browser)
+                             ▼
+             ┌─────────────────────────────────────┐
+             │ AuthContext.fetchMe()               │
+             └───────────┬─────────────────────────┘
+                         │
+                         │ 3. GET /api/me/ (with cookies)
+                         ▼
+       ┌───────────────────────────────────────────────────┐
+       │ Django CookieJWTAuthentication                    │
+       │ - Reads tt_access                                 │
+       │ - Validates JWT                                   │
+       │ - Sets request.user                               │
+       │ - Returns { id, username, email }                 │
+       └───────────┬───────────────────────────────────────┘
+                   │
+                   ▼
+      ┌─────────────────────────────────────────────┐
+      │ React AuthContext.setUser(me)               │
+      │ - user state now contains logged-in user    │
+      └────────┬────────────────────────────────────┘
+               │
+               │ 4. LoginPage detects `user` ≠ null
+               ▼
+    ┌───────────────────────────────────────────────┐
+    │ navigate("/")                                  │
+    │ User is redirected to HomePage                 │
+    └────────────────────────────────────────────────┘
+
+───────────────────────────────────────────────────────────────────
+                    SESSION RESTORE ON REFRESH
+───────────────────────────────────────────────────────────────────
+
+Browser refreshes →
+AuthProvider.mount →
+
+fetchMe() runs again →
+cookies auto-sent →
+/api/me/ returns user → setUser(me) →
+User stays logged in
+
+───────────────────────────────────────────────────────────────────
+                    LOGOUT
+───────────────────────────────────────────────────────────────────
+
+Logout button → AuthContext.logout() →
+
+POST /api/auth/logout/ →
+Django clears cookies →
+AuthProvider.setUser(null) →
+User state resets →
+Redirect to /login

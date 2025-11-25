@@ -1,4 +1,3 @@
-// filepath: /workspaces/trade-tracker/frontend/src/auth/AuthContext.jsx
 // Auth context using secure HTTP-only cookies set by the backend.
 // Frontend no longer reads/writes tokens; it just triggers login/logout
 // and asks `/api/me/` who the current user is.
@@ -117,3 +116,14 @@ export function useAuth() {
   if (!ctx) throw new Error("useAuth must be used within <AuthProvider>"); // Ensure hook is used within AuthProvider; otherwise, throw an error.
   return ctx;
 }
+
+
+// AuthContext centralizes everything about the signed-in user so the rest of the app doesn’t juggle tokens or duplicate state. It uses an underlying React context:
+
+// AuthProvider keeps two pieces of state—user (current account) and isLoading (bootstrap/login/logout in progress). It exposes them along with login and logout functions.
+// login talks to /api/auth/token/; the backend sets HttpOnly cookies, and then fetchMe() loads the user and stores it.
+// logout hits /api/auth/logout/, clears cookies server-side, then resets frontend state.
+// On mount, a bootstrap effect calls /api/me/ to restore a session if cookies already exist.
+// useMemo ensures consumers only re-render when user or isLoading actually change.
+// useAuth() is the safe helper so components can grab { user, isLoading, login, logout } without re-implementing context logic.
+// The design keeps auth logic in one place, reuses secure HttpOnly cookies instead of exposing tokens to React, and gives every component a single, consistent source of truth for the authentication state.
