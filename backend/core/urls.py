@@ -37,6 +37,10 @@ User = get_user_model()
 
 
 # ---------- /api/me/ -------------------------------------------------
+#This serializer provides a minimal representation of the current user that's why is created here.
+# And below is the view that uses it to return the authenticated user's info..
+
+#Serializer to convert User model instances to/from JSON for the /api/me/ endpoint.
 class MeSerializer(serializers.ModelSerializer):
     """
     Minimal representation of the current user.
@@ -46,9 +50,11 @@ class MeSerializer(serializers.ModelSerializer):
         model = User
         fields = ("id", "username", "email")
 
-
-@api_view(["GET"])
-@permission_classes([IsAuthenticated])
+#View to handle GET requests to /api/me/ and return the current authenticated user's info.
+# This is just a auth/me endpoint different from the viewsets defined in api/views.py since they use ModelViewSet for CRUD operations on trade models.
+# That's why their URLs are handled different by using DefaultRouter below.
+@api_view(["GET"]) # Endpoint only supports GET requests.
+@permission_classes([IsAuthenticated]) # Only authenticated users can access this endpoint.
 def me_view(request):
     """
     GET /api/me/
@@ -59,8 +65,9 @@ def me_view(request):
 
 
 # ---------- Auth endpoints (cookie-based) ----------------------------
-class CookieTokenObtainPairView(TokenObtainPairView):
+class CookieTokenObtainPairView(TokenObtainPairView): #TokenObtainPairView is a built-in view from SimpleJWT that handles obtaining JWT tokens.
     """
+    TokenObtainPairView uses simpleJWT's built=in serializer to validate username/password and return access + refresh tokens.
     Login: validates username/password, then sets HttpOnly access + refresh cookies.
     Response body is just { "ok": true }.
     """
@@ -81,7 +88,7 @@ class CookieTokenObtainPairView(TokenObtainPairView):
         return out
 
 
-class CookieTokenRefreshView(TokenRefreshView):
+class CookieTokenRefreshView(TokenRefreshView):# token refresh view that reads refresh token from cookie if not provided in request body.
     """
     Refresh: reads refresh token from cookie if not in body,
     then sets a new HttpOnly access cookie (and refresh if rotation enabled).
@@ -114,22 +121,26 @@ class CookieTokenRefreshView(TokenRefreshView):
             set_refresh_cookie(out, data["refresh"])
 
         return out
+# Token endpoints rely on SimpleJWT’s built-in serializers (they validate credentials against the existing User model). Tokens aren’t saved to the database, so no token model is needed.
+# The only “persistence” is the JWT cookies; the payload carries user ID/exp, and verification uses your SECRET_KEY + SimpleJWT settings.
 
-
+#===--------- Logout endpoint --------------------------------------------------
+# Logout view that clears both access and refresh cookies.
 @api_view(["POST"])
 @permission_classes([AllowAny])
-def logout_view(_request):
+def logout_view(_request): #_request is  a placeholder for the request parameter that is not used in the function.
     """
     Logout: clears both access and refresh cookies.
     """
     out = Response({"ok": True}, status=status.HTTP_200_OK)
-    clear_access_cookie(out)
+    clear_access_cookie(out) #clear_access_cookie and clear_refresh_cookie are utility functions that remove the respective cookies from the response.
     clear_refresh_cookie(out)
     return out
 
 
 # ---------- Routers / misc endpoints --------------------------------
-router = DefaultRouter()
+## 
+router = DefaultRouter() # => DefaultRouter automatically creates URL routes for our viewsets, following RESTful conventions(list/create/detail).
 router.register(r"spot-trades", SpotTradeViewSet, basename="spottrade")
 router.register(r"futures-trades", FuturesTradeViewSet, basename="futurestrade")
 
@@ -154,5 +165,5 @@ urlpatterns = [
 
     # Admin + API router
     path("admin/", admin.site.urls),
-    path("api/", include(router.urls)),
+    path("api/", include(router.urls)), # => Includes all the automatically generated routes for our API endpoints (spot-trades, futures-trades).
 ]

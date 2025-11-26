@@ -1,4 +1,3 @@
-# filepath: /workspaces/trade-tracker/backend/core/auth_cookies.py
 # This module provides helper functions to set and clear authentication cookiess on Django responses for auth.
 
 from rest_framework_simplejwt.settings import api_settings as jwt_settings # to access JWT settings like token lifetimes.
@@ -41,3 +40,6 @@ def set_access_cookie(response, access_token: str) -> None:
 
 def clear_access_cookie(response) -> None:
     response.delete_cookie("tt_access", path="/")
+
+#delete_cookie is a method of the HttpResponse class that removes the specified cookie from the response by setting its expiration date to a time in the past.
+#set_cookie is a method of the HttpResponse class that adds a cookie to the response with the specified name, value, and attributes.

@@ -5,6 +5,10 @@ from .models import SpotTrade, FuturesTrade, ExchangeCredential # Bring in the D
 from django.utils.timezone import localtime #Django utility to convert UTC times to local time zone.
 from datetime import timezone #Python standard library module for working with dates and times, including time zones.
 from .services.crypto_vault import CryptoVault
+from django.contrib.auth import get_user_model, password_validation
+
+User = get_user_model() #Get the currently active user model, which may be a custom user model.
+
 
 ##////////////////////////////////////////////////////////////////////////////////////////////////////////////////#
 #These serializers handle the conversion between our Django models and JSON representations for API communication.
@@ -13,6 +17,8 @@ from .services.crypto_vault import CryptoVault
 ## ===>>>⚡ Notice: You don’t send user, id, or trade_time → they are filled automatically.(Post method) <<<==== ##
 #Django REST Framework (DRF) serializer. (Django REST Framework.)
 # It’s designed to validate and transform input data (usually from an API request) into a model instance.
+
+#===============================================================================================================================
 
 #Defining a serializers for Our .Models using Django REST Framework (DRF):
 #First model
@@ -130,3 +136,43 @@ class ExchangeCredentialCreateSerializer(serializers.ModelSerializer):#ModelSeri
             can_trade=validated.get("can_trade", True), #Default to True if not provided.because most users will want trading enabled.
             can_transfer=validated.get("can_transfer", False),#Default to False if not provided.because most users won’t need transfer capabilities.
         )
+    
+#===============================================================================================================================
+#Fourth model: User Serializer for creating new users with password validation and hashing.
+class RegisterSerializer(serializers.ModelSerializer):
+    """
+    Public serializer used for user registration.
+
+    - Ensures username/email uniqueness.
+    - Runs Django's password validators.
+    - Uses create_user() so password is hashed.
+    """
+    password = serializers.CharField( #This is a custom field for password input.
+        #serializers.CharField declares a plain text field.
+        write_only = True,# => This field is only for input (e.g., during registration) and will not be included in serialized output.
+        trim_whitespace = False, # => clients can send a password with the request, but it will never be returned in the response payload. This is critical for security—your API never echoes passwords back.
+        style = {"input_type": "password"}, # => This hint can be used by API clients (like browsable API) to render the input appropriately (e.g., as a password field).
+      )#It will not show the password such as, it will show ******* instead of actual password to mask it.
+    
+    class Meta:
+        model = User
+        fields = ("id", "username", "email", "password")
+
+    # ---- Username validation --------------------------------------
+    def validate_username(self,value):# Ensure username is unique.
+        #value is the username being validated.
+        if User.objects.filter(username=value).exists(): #Check if a user with this username already exists in the database.
+            # if a record is found, raise a validation error.
+            #filter(username=value) makes a query to find users with the given username.
+            #exists() checks if any such user exists.returns True if a match exists, False otherwise.
+            raise serializers.ValidationError("Username already taken.")
+        return value    #If no existing user is found, return the validated username.
+    
+    # ---- Email validation (optional field) -------------------------
+    def validate_email(self, value):
+        if value and User.objects.filter(email=value).exists():
+            raise serializers.ValidationError("Email already in use")
+        return value
+        
+    
+    
