@@ -6,15 +6,16 @@ URL configuration for core project.
 from django.contrib import admin
 from django.http import JsonResponse
 from django.urls import include, path
+from api.views import register_view  
 
-from django.contrib.auth import get_user_model
 
-from rest_framework import serializers, status
+from rest_framework import  status
 from rest_framework.decorators import api_view, permission_classes
 from rest_framework.permissions import AllowAny, IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.routers import DefaultRouter
 from rest_framework_simplejwt.views import TokenObtainPairView, TokenRefreshView
+from api.serializers import MeSerializer
 
 from .auth_cookies import (
     clear_access_cookie,
@@ -33,22 +34,10 @@ def health(_request):
 def home(_request):
     return JsonResponse({"message": "✅ Welcome to the Trade Tracker API!"})
 
-User = get_user_model()
 
 
-# ---------- /api/me/ -------------------------------------------------
-#This serializer provides a minimal representation of the current user that's why is created here.
-# And below is the view that uses it to return the authenticated user's info..
 
-#Serializer to convert User model instances to/from JSON for the /api/me/ endpoint.
-class MeSerializer(serializers.ModelSerializer):
-    """
-    Minimal representation of the current user.
-    """
 
-    class Meta:
-        model = User
-        fields = ("id", "username", "email")
 
 #View to handle GET requests to /api/me/ and return the current authenticated user's info.
 # This is just a auth/me endpoint different from the viewsets defined in api/views.py since they use ModelViewSet for CRUD operations on trade models.
@@ -153,12 +142,9 @@ urlpatterns = [
 
     # Auth endpoints
     path("api/auth/token/", CookieTokenObtainPairView.as_view(), name="token_obtain_pair"),
-    path(
-        "api/auth/token/refresh/",
-        CookieTokenRefreshView.as_view(),
-        name="token_refresh",
-    ),
+    path("api/auth/token/refresh/", CookieTokenRefreshView.as_view(), name="token_refresh"),        
     path("api/auth/logout/", logout_view, name="logout"),
+    path("api/auth/register/", register_view, name="register"),
 
     # Current user
     path("api/me/", me_view, name="me"),

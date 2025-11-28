@@ -7,6 +7,8 @@ from datetime import timezone #Python standard library module for working with d
 from .services.crypto_vault import CryptoVault
 from django.contrib.auth import get_user_model, password_validation
 
+
+
 User = get_user_model() #Get the currently active user model, which may be a custom user model.
 
 
@@ -21,7 +23,7 @@ User = get_user_model() #Get the currently active user model, which may be a cus
 #===============================================================================================================================
 
 #Defining a serializers for Our .Models using Django REST Framework (DRF):
-#First model
+#First serializer for SpotTrade model
 class SpotTradeSerializer(serializers.ModelSerializer): # => Converts our .model instances to JSON (and vice versa) for API communication
     # Auto-attach the logged-in user; hidden from requests/responses by default.
     #During deserialization (POST/PUT), DRF auto-fills user with request.user.
@@ -62,7 +64,7 @@ class SpotTradeSerializer(serializers.ModelSerializer): # => Converts our .model
 
 #===============================================================================================================================
 
-#Second model
+#Second serializer for FuturesTrade model
 class FuturesTradeSerializer(serializers.ModelSerializer):# => Converts our .model instances to JSON (and vice versa) for API communication
     user = serializers.HiddenField(default=serializers.CurrentUserDefault()) # => Automatically sets the user field to the currently authenticated user making the request. This way, clients don’t have to (and can’t) specify the user when creating or updating a trade; it’s handled by the server.
     trade_time_utc = serializers.SerializerMethodField() # We use SerializerMethodField to add custom, read-only fields (not stored in the model or database).
@@ -103,7 +105,7 @@ class FuturesTradeSerializer(serializers.ModelSerializer):# => Converts our .mod
 
 #===============================================================================================================================
 
-#Third model
+#Third serializer: MeSerializer for User model
 class ExchangeCredentialCreateSerializer(serializers.ModelSerializer):#ModelSerializer auto-generates fields for model fields in Meta.fields (exchange, label, can_trade, can_transfer).
     # three extra fields added for input only (write_only=True) - not stored directly in the model
     # These are the “explicitly declared fields.”
@@ -138,7 +140,7 @@ class ExchangeCredentialCreateSerializer(serializers.ModelSerializer):#ModelSeri
         )
     
 #===============================================================================================================================
-#Fourth model: SIGNUP serializer
+#Fourth serializer: RegisterSerializer for User model SIGNUP
 # User Serializer for creating new users with password validation and hashing.
 
 class RegisterSerializer(serializers.ModelSerializer):
@@ -210,9 +212,21 @@ class RegisterSerializer(serializers.ModelSerializer):
             password = validated_data["password"],
         )
 
+#===============================================================================================================================
+#Fifth serializer: MeSerializer for User model
 
+# ---------- /api/me/ -------------------------------------------------
+#This serializer provides a minimal representation of the current user that's why is created here.
+# And below is the view that uses it to return the authenticated user's info..
+#Serializer to convert User model instances to/from JSON for the /api/me/ endpoint.
+class MeSerializer(serializers.ModelSerializer):
+    """
+    Minimal representation of the current user.
+    """
 
-
+    class Meta:
+        model = User
+        fields = ("id", "username", "email")
 
         
     

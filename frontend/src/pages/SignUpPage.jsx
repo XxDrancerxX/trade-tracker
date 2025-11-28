@@ -1,10 +1,10 @@
 // src/pages/SignupPage.jsx
 import React, { useState, useEffect } from "react";
-import { useNavigate } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import { useAuth } from "../auth/AuthContext"; // adjust path if needed
 
 function SignupPage() {
-    const { user, isLoading } = useAuth();
+    const { user, isLoading, register } = useAuth(); // Custom hook to access auth context.
     const navigate = useNavigate(); // Hook to programmatically navigate between routes. 
     const [username, setUsername] = useState(""); //creates React state stored in memory for this component.
     const [password, setPassword] = useState(""); //creates React state stored in memory for this component.
@@ -21,7 +21,27 @@ function SignupPage() {
         }
     }, [user, isLoading, navigate]); // dependencies for useEffect hook, so it runs when these change.
 
-    function handleSubmit(e) {
+    // Turn DRF error payload into one friendly message
+    function normalizeError(err) {
+        if (!err) return "Signup failed.";
+        const body = err.body || {};
+
+        if (Array.isArray(body.non_field_errors) && body.non_field_errors.length) {
+            return body.non_field_errors[0];
+        }
+        if (Array.isArray(body.username) && body.username.length) {
+            return `Username: ${body.username[0]}`;
+        }
+        if (Array.isArray(body.password) && body.password.length) {
+            return `Password: ${body.password[0]}`;
+        }
+        if (typeof err.message === "string") {
+            return err.message;
+        }
+        return "Signup failed.";
+    }
+
+    async function handleSubmit(e) {
         e.preventDefault();// Prevent default form submission behavior
         setError(""); // Clear previous errors
 
@@ -40,31 +60,51 @@ function SignupPage() {
             return;
         }
 
+        if (password.length < 8) {
+            setError("Password must be at least 8 characters.");
+            return;
+        }
+
         setIsSubmitting(true);
-        console.log("Signup form submit:", { username, password, passwordConfirm });
+        const { ok, error: err } = await register(username.trim(), password); // Call register from auth context
         setIsSubmitting(false);
+
+        if (!ok) {
+            setError(normalizeError(err));
+            return;
+        }
+
+        // Success: user created, cookies set, AuthContext.user updated
+        navigate("/", { replace: true });
+
+
     }
 
     return (
-        //Top-level div to center the signup form with max width and margin.
+        // Top-level div to center the signup form with max width and margin.
         <div style={{ maxWidth: 400, margin: "2rem auto" }}>
+            {/* Simple header with link back to login */}
+            <div style={{ marginBottom: "1rem", display: "flex", justifyContent: "space-between" }}>
+                <span>Trade Tracker</span>
+                <Link to="/login">Login</Link>
+            </div>
+
             <h1>Sign up</h1>
 
-            {/* Signup form Container, it groups the inputs and manages submission*/}
-            <form onSubmit={handleSubmit}> {/* When the form is submitted, it triggers handleSubmit function. */}
-                {/* groups label/input pair for layout. */}
+            {/* Signup form Container */}
+            <form onSubmit={handleSubmit} noValidate>
                 <div style={{ marginBottom: "0.5rem" }}>
-                    {/*  wraps text and input. Clicking the label focuses the input because the input is nested. */}
                     <label>
                         Username
                         <input
                             type="text"
                             value={username}
-                            onChange={(e) => setUsername(e.target.value)} // updates the state every time the user types.
+                            onChange={(e) => setUsername(e.target.value)}
                             style={{ width: "100%", padding: "0.25rem" }}
                         />
                     </label>
                 </div>
+
                 <div style={{ marginBottom: "0.5rem" }}>
                     <label>
                         Password
@@ -88,16 +128,18 @@ function SignupPage() {
                         />
                     </label>
                 </div>
+
                 {error && (
                     <p style={{ color: "crimson", marginTop: "0.5rem" }}>
                         {error}
                     </p>
                 )}
-                {/* disabled greys out the button when isSubmitting is true.
-                When we start the submit handler, we call setIsSubmitting(true) → button disables.
-                When the handler finishes, we call setIsSubmitting(false) → button re-enables.
-                This prevents double-submits while the request is in flight. */}
-                <button type="submit" style={{ width: "100%", marginTop: "0.5rem" }} disabled={isSubmitting}>{/* Type of button triggers form submission onSubmit, disabled when submitting to prevent multiple submissions */}
+
+                <button
+                    type="submit"
+                    style={{ width: "100%", marginTop: "0.5rem" }}
+                    disabled={isSubmitting}
+                >
                     {isSubmitting ? "creating account..." : "Create account"}
                 </button>
             </form>
