@@ -12,7 +12,9 @@ def test_register_success(): # Test successful user registration.
     resp = client.post("/api/auth/register/", {
         "username": "newuser",
         "password": "newpass123",
-    }, format="json") # Send POST request to the register endpoint with JSON body.
+    }, format="json",
+    secure = True,
+    ) # Send POST request to the register endpoint with JSON body.
 
     assert resp.status_code == 201 # Expect HTTP 201 Created response.
     data = resp.json() # Parse JSON response body.
@@ -37,7 +39,9 @@ def test_register_duplicate_username(): # Test registration with an existing use
     resp = client.post("/api/auth/register/", {
         "username": "existing",
         "password": "newpass123",
-    }, format="json")
+    }, format="json",
+    secure = True,
+    )
 
     assert resp.status_code == 400
     # DRF sends {"username": ["A user with that username already exists."]}
@@ -52,7 +56,9 @@ def test_register_password_too_short(): # Test registration with a too-short pas
     resp = client.post("/api/auth/register/", {
         "username": "shortpw",
         "password": "abc",   # too short
-    }, format="json")
+    }, format="json",
+    secure = True,
+    )
 
     assert resp.status_code == 400
     data = resp.json()
