@@ -138,7 +138,9 @@ class ExchangeCredentialCreateSerializer(serializers.ModelSerializer):#ModelSeri
         )
     
 #===============================================================================================================================
-#Fourth model: User Serializer for creating new users with password validation and hashing.
+#Fourth model: SIGNUP serializer
+# User Serializer for creating new users with password validation and hashing.
+
 class RegisterSerializer(serializers.ModelSerializer):
     """
     Public serializer used for user registration.
@@ -155,10 +157,14 @@ class RegisterSerializer(serializers.ModelSerializer):
       )#It will not show the password such as, it will show ******* instead of actual password to mask it.
     
     class Meta:
-        model = User
+        model = User #The User model to serialize/deserialize.
         fields = ("id", "username", "email", "password")
 
     # ---- Username validation --------------------------------------
+    # Ensures:
+    # Duplicate usernames return 400 Bad Request
+    # Frontend receives: { "username": ["Username already taken."] }
+
     def validate_username(self,value):# Ensure username is unique.
         #value is the username being validated.
         if User.objects.filter(username=value).exists(): #Check if a user with this username already exists in the database.
@@ -173,6 +179,41 @@ class RegisterSerializer(serializers.ModelSerializer):
         if value and User.objects.filter(email=value).exists():
             raise serializers.ValidationError("Email already in use")
         return value
+    
+    # ---- Password validation (Django validators) ---------------------
+    def validate_password(self, value):  # Validate password using Django's built-in validators.
+        # DRF stores the raw request payload on self.initial_data (that is an attribute in __init__ of the serializer clase) as soon as the serializer
+        # is instantiated (RegisterSerializer(data=request.data)). Before validation finishes we
+        # can read the submitted username from there, build an unsaved User instance with it, and
+        # pass that stub to password_validation.validate_password so Django applies the global
+        # password policy (length, similarity to username, etc.) against the exact values the user
+        # typed. If any validator fails a ValidationError bubbles up, otherwise we return the
+        # original password so create_user() can hash it later in create().
+        user = User(username=self.initial_data.get("username", "")) #Create a temporary User instance with the submitted username.
+        password_validation.validate_password(value, user) #Validate the password against Django's password policies.
+        #password_validation is a Django module(you can find it in the library django.contrib.auth package) that provides functions to validate passwords according to configured validators.
+        #From there we pull validate_password() which checks the password against the validators defined in our Django settings (like minimum length, complexity, similarity to username, etc.).
+        #Errors are handled by DRF and returned as validation errors in the API response if any validator fails.
+        return value
+    
+    # ---- Create user using create_user() ---------------------------
+    #It hashes passwords securely
+    #It sets user defaults
+    #It respects your custom User model (if extended later)
+    #We can't use User.objects.create() — it stores raw password (security disaster).
+
+    def create(self,validated_data): # Create and return a new User instance using the validated data.
+        #validated_data is a dictionary of DRF Library, where our field values have been validated, cleaned and saved.
+        return User.objects.create_user( #Use create_user() to ensure password is hashed properly.
+            username = validated_data["username"],
+            email = validated_data.get("email") or "", #Email is optional; default to empty string if not provided.
+            password = validated_data["password"],
+        )
+
+
+
+
+
         
     
     
