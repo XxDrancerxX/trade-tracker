@@ -16,17 +16,21 @@ const AuthContext = createContext(null); //this returns a Context object with 2 
 //AuthContext.Provider: a component that supplies a value to descendants.
 // The “current value” slot (managed by React) that consumers read via useContext(AuthContext).
 
+
+//=====================================================================================================================================================================================//
 export function AuthProvider({ children }) { // Children are the nested components inside <AuthProvider> in the component tree.It's a special React prop hat allows components to wrap other components.
   const [user, setUser] = useState(null); // tracks current user; null = not logged in
   const [isLoading, setLoading] = useState(true); // tracks bootstrap + login
-
+  
+  //--------------------------------------------------------------------------------------------------------------------------------------------//
   // Helper: fetch current user using cookie-based auth
   async function fetchMe() {
     // Cookies are sent automatically by apiFetch via credentials: "include"
     const res = await apiFetch("/api/me/");
     return res;
   }
-
+  
+  //--------------------------------------------------------------------------------------------------------------------------------------------//
   // Public: login with username/password.
   // Backend is responsible for setting HTTP-only cookies (access/refresh).
   async function login(username, password) {
@@ -50,7 +54,28 @@ export function AuthProvider({ children }) { // Children are the nested componen
       setLoading(false);
     }
   }
+  //--------------------------------------------------------------------------------------------------------------------------------------------//
+    // Public: register a new user.
+    async function register(username, password) {
+    setLoading(true);
+    try {
+      const resp = await apiFetch("/api/auth/register/", {
+        method: "POST",
+        body: { username, password },
+      });
 
+      // Backend returns: { ok: true, user: {...} }
+      setUser(resp.user);
+      return { ok: true };
+    } catch (err) {
+      return { ok: false, error: err };
+    } finally {
+      setLoading(false);
+    }
+  }
+
+
+  //--------------------------------------------------------------------------------------------------------------------------------------------//
   // Public: logout.
   // Backend should clear cookies on this route (adjust path to your backend).
   async function logout() {
@@ -66,6 +91,7 @@ export function AuthProvider({ children }) { // Children are the nested componen
     }
   }
 
+  //--------------------------------------------------------------------------------------------------------------------------------------------//
   // Bootstrap: on first mount, try to restore session from cookies.
   useEffect(() => { // runs once on mount due to empty dependency array.because deps = [] at end, it runs once after first render.
     let cancelled = false; // flag to prevent state updates if unmounted
@@ -97,6 +123,8 @@ export function AuthProvider({ children }) { // Children are the nested componen
       isLoading,
       login,
       logout,
+      fetchMe,
+      register,
     }),
     [user, isLoading], // Recompute value only when user or isLoading changes.
   );
