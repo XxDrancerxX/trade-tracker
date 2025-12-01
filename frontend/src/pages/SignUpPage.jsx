@@ -24,7 +24,7 @@ function SignupPage() {
     // Turn DRF error payload into one friendly message
     function normalizeError(err) {
         if (!err) return "Signup failed.";
-        const body = err.body || {};
+        const body = err.body || {}; // DRF error details are in err.body
 
         if (Array.isArray(body.non_field_errors) && body.non_field_errors.length) {
             return body.non_field_errors[0];
@@ -70,7 +70,7 @@ function SignupPage() {
         setIsSubmitting(false);
 
         if (!ok) {
-            setError(normalizeError(err));
+            setError(normalizeError(err)); // Show normalized error message
             return;
         }
 
@@ -92,7 +92,7 @@ function SignupPage() {
             <h1>Sign up</h1>
 
             {/* Signup form Container */}
-            <form onSubmit={handleSubmit} noValidate>
+            <form onSubmit={handleSubmit} noValidate> {/* noValidate disables default HTML5 validation, allowing custom validation logic in React. */ }
                 <div style={{ marginBottom: "0.5rem" }}>
                     <label>
                         Username
@@ -138,7 +138,7 @@ function SignupPage() {
                 <button
                     type="submit"
                     style={{ width: "100%", marginTop: "0.5rem" }}
-                    disabled={isSubmitting}
+                    disabled={isSubmitting} // Disable button while submitting
                 >
                     {isSubmitting ? "creating account..." : "Create account"}
                 </button>
