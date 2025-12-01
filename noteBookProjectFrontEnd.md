@@ -584,3 +584,315 @@ Django clears cookies →
 AuthProvider.setUser(null) →
 User state resets →
 Redirect to /login
+
+
+# FE-005 / BE-005 — Signup System (Registration Flow)
+
+## 🧩 Summary
+Full-stack feature enabling secure user registration with cookie-based JWT authentication.
+
+**Tech stack:**
+- Backend: Django + DRF + SimpleJWT
+- Frontend: React (Vite) + AuthContext
+- Auth: JWT in HttpOnly cookies (`tt_access` + `tt_refresh`)
+
+**User flow:**
+1. Submit username + password
+2. Backend creates user
+3. Backend sets secure cookies
+4. Frontend becomes "logged in"
+5. Redirect to `/`
+
+Signup behaves like login but includes account creation.
+
+---
+
+## 🏗 Backend Implementation
+
+### 1. `RegisterSerializer`
+**File:** `backend/api/serializers.py`
+
+**Purpose:**
+- Validate username/password
+- Block duplicates
+- Create Django `User` with hashed password
+
+```python
+class RegisterSerializer(serializers.ModelSerializer):
+    password = serializers.CharField(write_only=True, min_length=8)
+
+    class Meta:
+        model = User
+        fields = ("id", "username", "email", "password")
+
+    def validate_email(self, value):
+        if value and User.objects.filter(email=value).exists():
+            raise serializers.ValidationError("Email already in use")
+        return value
+
+    def create(self, validated):
+        return User.objects.create_user(
+            username=validated["username"],
+            email=validated.get("email", ""),
+            password=validated["password"],
+        )
+  ``` 
+✔ Password is hashed
+✔ Creates new user
+✔ Email optional for MVP       
+
+---
+
+### 2. `register_view`
+**File:** `backend/core/urls.py` (imported from auth views module)
+
+**Responsibilities:**
+- Accept POST requests
+- Validate + create user
+- Generate `access` + `refresh` JWT
+- Set HttpOnly cookies
+- Return new user JSON
+
+```python
+@api_view(["POST"])
+@permission_classes([AllowAny])
+def register_view(request):
+    serializer = RegisterSerializer(data=request.data)
+    serializer.is_valid(raise_exception=True)
+    user = serializer.save()
+
+    refresh = RefreshToken.for_user(user)
+
+    out = Response(
+        {"ok": True, "user": serializer.data},
+        status=status.HTTP_201_CREATED
+    )
+    set_access_cookie(out, str(refresh.access_token))
+    set_refresh_cookie(out, str(refresh))
+    return out
+  ```  
+
+✔ Security Notes:
+-Cookies are HttpOnly, Secure, SameSite=None, Path=/
+-Token is never exposed to React
+-Browser stores cookies automatically
+-Any request to /api/... automatically includes credentials  
+
+## 3. URL Registration
+```python
+path("api/auth/register/", register_view, name="register")
+```
+## 4. Backend Tests (pytest)
+**Tests verify:**
+
+-201 Created
+-User is created
+-Cookies are set
+-Duplicate usernames return 400
+-Backend is fully validated.
+
+## 🏗 Frontend Implementation
+**Located in:**
+-frontend/src/auth/AuthContext.jsx
+-frontend/src/pages/SignupPage.jsx
+- Uses react-router-dom for navigation
+
+## 1. AuthContext: new register() method
+
+```javascript
+async function register(username, password) {
+  setLoading(true);
+  try {
+    const resp = await apiFetch("/api/auth/register/", {
+      method: "POST",
+      body: { username, password },
+    });
+    setUser(resp.user);
+    return { ok: true };
+  } catch (err) {
+    return { ok: false, error: err };
+  } finally {
+    setLoading(false);
+  }
+}
+```
+**🔑 Key ideas**
+- `apiFetch` sends `credentials: "include"` → cookies saved by browser
+- On success → call `setUser(resp.user)`
+- React instantly becomes "logged in"
+- No tokens stored in `localStorage`
+- No tokens exposed to JS → secure by design
+
+---
+
+## 2. `SignupPage.jsx`
+
+**Core responsibilities:**
+- Render form
+- Validate fields
+- Call `register()`
+- Show backend validation errors
+- Redirect on success
+
+**Error normalization function**  
+We map DRF error formats into a single human‑readable string:
+
+```javascript
+function normalizeError(err) {
+  const body = err?.body || {};
+  if (body.username) return `Username: ${body.username[0]}`;
+  if (body.password) return `Password: ${body.password[0]}`;
+  if (body.non_field_errors) return body.non_field_errors[0];
+  return "Signup failed.";
+}
+```
+
+
+**Submission flow:**  
+```javascript
+const { ok, error: err } = await register(username.trim(), password);
+
+if (!ok) {
+  setError(normalizeError(err));
+  return;
+}
+
+navigate("/", { replace: true });
+```
+✔ Creates account
+✔ AuthContext loads user
+✔ Redirects to /
+
+## End-to-End Workflow Diagram:
+┌────────────────────────────┐
+│       React SignupPage      │
+└──────────────┬─────────────┘
+               │
+     1. User submits form
+               │
+               ▼
+┌───────────────────────────────────────┐
+│ AuthContext.register(username, pass)  │
+└──────────────┬────────────────────────┘
+               │
+     2. apiFetch("/api/auth/register/")
+               │
+               ▼
+      Browser sends POST request
+      (credentials: "include")
+               │
+               ▼
+┌─────────────────────────────────────────┐
+│        Django register_view             │
+├─────────────────────────────────────────┤
+│ Validate → Create User → Issue Tokens   │
+│ Set-Cookie: tt_access                   │
+│ Set-Cookie: tt_refresh                  │
+└──────────────┬──────────────────────────┘
+               │
+       3. Response JSON:
+       { ok: true, user: {...} }
+               │
+               ▼
+┌───────────────────────────────────────┐
+│ AuthContext receives resp.user        │
+│ setUser(resp.user)                    │
+└──────────────┬────────────────────────┘
+               │
+        4. App is now authenticated
+               │
+               ▼
+     React redirects → Home (/)
+
+
+## 🔗 How Both Ends Integrate
+
+**🔄 Backend responsibilities**
+- Validate user data  
+- Hash password  
+- Create user  
+- Issue JWT tokens  
+- Store tokens in HttpOnly cookies  
+- Return new user data
+
+**🔄 Frontend responsibilities**
+- Provide signup UI (username, password)  
+- Validate fields early  
+- Send signup request to backend  
+- Store user object in context  
+- Redirect on success  
+- Display backend validation errors  
+
+**🔐 Security benefits**
+- No token ever touches React  
+- Cookies are HttpOnly → immune to XSS  
+- Cookies use `Secure` + `SameSite=None` → safe for cross‑origin dev  
+- `AuthContext` remains the single source of truth  
+
+---
+
+## ✅ Final Result
+
+The signup system is now:
+- Secure (token‑less frontend, HttpOnly cookies)  
+- Fully integrated (backend + frontend)  
+- Production‑ready  
+- Tested (backend pytest)  
+- Extensible (easy to add email, password reset, etc.)
+
+Signup is the foundation for:
+- Protected routes  
+- User onboarding  
+- Dashboard personalization  
+- Exchange connection UI  
+
+**✔ Feature FE‑005 / BE‑005: DONE**
+
+
+# FE-006 — ProtectedRoute (Auth-only pages)
+
+## Purpose
+
+Some routes (like `/`) should only be visible to authenticated users.  
+`ProtectedRoute` is a small wrapper that:
+
+- Waits for auth bootstrap (`isLoading`)
+- Redirects unauthenticated users to `/login`
+- Renders the protected content only when `user` is present
+
+## Component
+
+```jsx
+// src/auth/ProtectedRoute.jsx
+import React from "react";
+import { Navigate, useLocation } from "react-router-dom";
+import { useAuth } from "./AuthContext.jsx";
+
+export function ProtectedRoute({ children }) {
+  const { user, isLoading } = useAuth();
+  const location = useLocation();
+
+  if (isLoading) {
+    return <div>Loading...</div>;
+  }
+
+  if (!user) {
+    return (
+      <Navigate
+        to="/login"
+        replace
+        state={{ from: location }}
+      />
+    );
+  }
+
+  return children;
+}
+```
+
+## Behavior checklist:
+
+-Logged-out user visiting / → redirected to /login
+-Logged-in user visiting / → sees HomePage
+-Refresh on / → stays on / (session restored via cookies + AuthProvider)
+-Logout + Back button → cannot see protected content again

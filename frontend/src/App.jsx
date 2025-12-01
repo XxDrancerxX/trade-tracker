@@ -3,7 +3,8 @@
 // "React" is the default export, containing the core React API. It contains element such as createElement, Fragment, useEffect, useMemo, etc.
 // src/App.jsx
 
-import React from "react";
+import React from "react"; 3
+import { ProtectedRoute } from "./auth/ProtectedRoute.jsx"; // Component to protect routes that require authentication.
 import { Routes, Route, Navigate } from "react-router-dom"; // React Router components for routing.
 // Routes: container for Route elements, matches the current URL to a Route.
 // Route: defines a mapping from a path to a component.
@@ -11,6 +12,7 @@ import { Routes, Route, Navigate } from "react-router-dom"; // React Router comp
 import { useAuth } from "./auth/AuthContext";  // Custom hook to access auth context. 
 import LoginPage from "./pages/LoginPage.jsx"; //  Login page component.
 import SignupPage from "./pages/SignUpPage.jsx"; // Signup page component.
+
 
 
 
@@ -39,8 +41,12 @@ function Header() {
         <a href="/login">Login</a>  // If not loading and no user(both conditions have to be true),show login link
       )}
 
+      {!isLoading && !user && (
+        <a href="/signup">Signup</a>  // If not loading and no user(both conditions have to be true),show login link
+      )}
+
       {!isLoading && user && ( // If not loading and user is logged in, show username and logout button
-        <> {/* This is a React Fragment - a wrapper that doesn't create an actual HTML element.  */ }
+        <> {/* This is a React Fragment - a wrapper that doesn't create an actual HTML element.  */}
           <span style={{ marginRight: "1rem" }}>
             Logged in as <strong>{user.username}</strong>
           </span>
@@ -71,11 +77,24 @@ function App() {
     <>
       <Header />
       <Routes>
-        <Route path="/" element={<HomePage />} />
+        {/* 🔒 PROTECTED HOME */}
+        <Route
+          path="/"
+          element={
+            <ProtectedRoute>
+              <HomePage />
+            </ProtectedRoute>
+          }
+        />
+
+        {/* 🔓 PUBLIC ROUTES */}
         <Route path="/login" element={<LoginPage />} />
         <Route path="/signup" element={<SignupPage />} />
+
+        {/* Catch-all redirects to "/" (which is protected) */}
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
+
     </>
   );
 }

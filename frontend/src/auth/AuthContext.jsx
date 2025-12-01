@@ -2,6 +2,56 @@
 // Frontend no longer reads/writes tokens; it just triggers login/logout
 // and asks `/api/me/` who the current user is.
 
+
+// AuthContext.jsx — central place for auth state & actions
+//=====================================================================================================//
+
+// High-level idea
+// ---------------
+// - We keep *one* global source of truth for authentication: AuthContext.
+// - The backend uses HttpOnly cookies for JWTs; frontend never touches tokens.
+// - Frontend only:
+//     - asks “who am I?” → GET /api/me/
+//     - triggers login/logout/register endpoints.
+// - Any component can call useAuth() to read:
+//     - user       → current logged-in user object (or null)
+//     - isLoading  → whether auth is bootstrapping / logging in / logging out
+//     - login()    → perform login and load user
+//     - logout()   → log out and clear user
+//     - register() → sign up and load user
+//=====================================================================================================//
+
+// Pieces
+// ------
+// 1) Context object
+//    const AuthContext = createContext(null);
+//
+//    - React Context is a way to pass data down the tree without prop-drilling.
+//    - AuthContext will hold { user, isLoading, login, logout, fetchMe, register }.
+//    - We provide that value at the top of the app with <AuthProvider>.
+//
+// 2) <AuthProvider> component
+//    export function AuthProvider({ children }) { … }
+//
+//    - Wraps the whole app in <AuthContext.Provider>.
+//    - Owns the *real* auth state and logic.
+//    - children = whatever React elements are inside <AuthProvider> in App.jsx.
+//
+//    State inside AuthProvider:
+//    --------------------------
+//    const [user, setUser] = useState(null);
+//      - null  → not logged in / unknown
+//      - {...} → user object from /api/me/
+//
+//    const [isLoading, setLoading] = useState(true);
+//      - true  → auth is doing something (bootstrap, login, logout, register)
+//      - false → idle
+//=====================================================================================================//
+
+
+
+
+
 import React, {
   //Each is a named export from the react package; they are functions (hooks or API helpers) used inside function components.
   createContext, // Creates a Context object ({ Provider, Consumer }). Provider’s value prop supplies data to any descendant calling useContext.
@@ -34,6 +84,12 @@ export function AuthProvider({ children }) { // Children are the nested componen
   // Public: login with username/password.
   // Backend is responsible for setting HTTP-only cookies (access/refresh).
   async function login(username, password) {
+    // 1. Hit login endpoint → backend sets cookies.
+    // 2. Call fetchMe() → backend reads cookies, returns user.
+    // 3. Save user in state so whole app sees “logged in”.
+    // -Return shape: { ok: true } on success, { ok: false, error } on failure.
+    // -Callers use this to show messages.
+
     setLoading(true); // start loading state, marks the UI as busy.
     try { // Try to log in
       // 1) Hit login endpoint. Body as plain object; apiFetch JSON-encodes.
@@ -57,6 +113,9 @@ export function AuthProvider({ children }) { // Children are the nested componen
   //--------------------------------------------------------------------------------------------------------------------------------------------//
     // Public: register a new user.
     async function register(username, password) {
+    // - Very similar to login, but hits /api/auth/register/.
+    // - Backend both creates the user and sets cookies.
+    // - We just store resp.user as the current user.
     setLoading(true);
     try {
       const resp = await apiFetch("/api/auth/register/", {
@@ -79,6 +138,8 @@ export function AuthProvider({ children }) { // Children are the nested componen
   // Public: logout.
   // Backend should clear cookies on this route (adjust path to your backend).
   async function logout() {
+    // -Calls backend to clear cookies.
+    // -Clears user on the frontend so app sees “logged out”.
     setLoading(true);
     try {
       await apiFetch("/api/auth/logout/", { method: "POST" });
@@ -97,6 +158,11 @@ export function AuthProvider({ children }) { // Children are the nested componen
     let cancelled = false; // flag to prevent state updates if unmounted
 
     async function bootstrap() { // async function to initialize auth state
+      // - Calls GET /api/me/.
+      // - apiFetch automatically sends cookies (credentials: "include").
+      // - If cookies are valid, backend returns current user JSON.
+      // - Used by login() and the bootstrap effect.
+
       setLoading(true); // start loading state before fetching user
       try {
         try {
@@ -114,6 +180,10 @@ export function AuthProvider({ children }) { // Children are the nested componen
     bootstrap(); // call the async bootstrap function
     return () => { // Cleanup function runs on unmount.
       cancelled = true; // set flag to prevent state updates after unmount.// Marks effect as cancelled so pending awaits won’t update state.
+        // - Runs once when <AuthProvider> mounts.
+        // - Uses any existing cookies to check if the user is already logged in.
+        // - Sets user + isLoading accordingly.
+        // - This is why on a hard refresh, the app still knows who we are.
     };
   }, []);  // Dependency array empty → effect runs only once (mount), then cleanup on unmount.
 
@@ -127,6 +197,9 @@ export function AuthProvider({ children }) { // Children are the nested componen
       register,
     }),
     [user, isLoading], // Recompute value only when user or isLoading changes.
+       // - We construct a single object containing everything consumers need.
+       // - useMemo ensures we only create a **new** object when `user` or
+       // - `isLoading` actually change, avoiding extra re-renders.
   );
 
   return (
@@ -155,3 +228,26 @@ export function useAuth() {
 // useMemo ensures consumers only re-render when user or isLoading actually change.
 // useAuth() is the safe helper so components can grab { user, isLoading, login, logout } without re-implementing context logic.
 // The design keeps auth logic in one place, reuses secure HttpOnly cookies instead of exposing tokens to React, and gives every component a single, consistent source of truth for the authentication state.
+
+//=====================================================================================================================//
+// Summary / mental model
+// ----------------------
+// - AuthProvider = the “auth brain” of the app.
+//   - Knows how to log in, register, log out, and restore sessions.
+//   - Owns `user` + `isLoading` state.
+// - useAuth() = the “auth API” for the rest of the app.
+//   - Components call useAuth() to *read* auth state and trigger actions.
+// - Backend handles all JWT + cookie details; frontend only:
+//
+//     - POST /api/auth/token/       (login)
+//     - POST /api/auth/register/    (signup)
+//     - POST /api/auth/logout/      (logout)
+//     - GET  /api/me/               (who am I?)
+//
+// - Because cookies are HttpOnly and handled by the browser, the React side
+//   never stores or reads raw tokens → safer and simpler.
+//
+// - This design gives:
+//     - single source of truth for auth
+//     - shared state across the whole app (navbar, protected routes, pages)
+//     - clean separation between “auth logic” (here) and UI (pages/components).
