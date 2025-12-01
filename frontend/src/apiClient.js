@@ -42,13 +42,13 @@ export async function apiFetch(path, options = {}) {
     opts.body instanceof Blob ||
     opts.body instanceof ArrayBuffer ||
     opts.body instanceof Uint8Array;
-        // Blob: binary data blob (File extends Blob). Good for uploads: images, PDFs, etc.
-        // ArrayBuffer: raw fixed-length binary buffer.
-        // Uint8Array: typed array view over an ArrayBuffer (Node.js Buffer extends Uint8Array, so this will be true for Buffer too).
+  // Blob: binary data blob (File extends Blob). Good for uploads: images, PDFs, etc.
+  // ArrayBuffer: raw fixed-length binary buffer.
+  // Uint8Array: typed array view over an ArrayBuffer (Node.js Buffer extends Uint8Array, so this will be true for Buffer too).
 
   // Decide if we should auto-stringify the body to JSON
   const shouldStringify = // If body is a non-null object and not FormData, URLSearchParams, or binary, we should stringify it.
-  // It will set true only when:
+    // It will set true only when:
     opts.body != null &&
     typeof opts.body === "object" &&
     !isFormData &&
@@ -94,6 +94,26 @@ export async function apiFetch(path, options = {}) {
     err.body = errBody;
     throw err;
   }
+
+  async function refreshAccessToken() { // Function to refresh access token using refresh token cookie
+    const res = await fetch(`${API_URL}/api/auth/token/refresh/`, {
+      method: "POST",
+      credentials: "include",
+    });
+
+    if (!res.ok) {
+      const err = new Error("Token refresh failed");
+      err.status = res.status;
+      try {
+        err.body = await res.json();
+      } catch {
+        err.body = null;
+      }
+      throw err;
+    }
+    // No need to return anything: cookies are updated by the backend
+  }
+
 
   // Success: auto-parse JSON responses, return text for others, null for no-content
   if (res.status === 204 || res.status === 205) return null; // No Content or Reset Content
