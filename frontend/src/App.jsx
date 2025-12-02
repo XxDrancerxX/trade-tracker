@@ -12,6 +12,7 @@ import { Routes, Route, Navigate } from "react-router-dom"; // React Router comp
 import { useAuth } from "./auth/AuthContext";  // Custom hook to access auth context. 
 import LoginPage from "./pages/LoginPage.jsx"; //  Login page component.
 import SignupPage from "./pages/SignUpPage.jsx"; // Signup page component.
+import { apiFetch } from "./apiClient.js"; // Custom API fetch function with auth handling.
 
 
 
@@ -60,14 +61,36 @@ function Header() {
 function HomePage() {
   const { user, isLoading } = useAuth();
 
+  async function handleTestApi() {
+    try {
+      const data = await apiFetch("/api/me/");
+      console.log("API OK:", data);
+    } catch (err) {
+      console.error("RAW ERROR:", err);              // 👈 add this
+      console.error("API ERROR:", {
+        status: err.status,
+        code: err.code,
+        body: err.body,
+      });
+    }
+  }
+
+
   return (
     <div style={{ padding: "2rem" }}>
       <h1>Home</h1>
+
       {isLoading && <p>Checking session…</p>}
-      {!isLoading && !user && <p>You are not logged in.</p>}
       {!isLoading && user && (
-        <p>Welcome back, <strong>{user.username}</strong>!</p>
+        <>
+          <p>
+            Welcome back, <strong>{user.username}</strong>!
+          </p>
+        </>
       )}
+      <button onClick={handleTestApi}>
+        Test /api/me (refresh flow)
+      </button>
     </div>
   );
 }
@@ -81,9 +104,9 @@ function App() {
         <Route
           path="/"
           element={
-            <ProtectedRoute>
-              <HomePage />
-            </ProtectedRoute>
+            // <ProtectedRoute>
+            <HomePage />
+            // {/* </ProtectedRoute> */}
           }
         />
 
