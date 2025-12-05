@@ -2,6 +2,9 @@
 
 from rest_framework_simplejwt.settings import api_settings as jwt_settings # to access JWT settings like token lifetimes.
 #api_settings contains settings like ACCESS_TOKEN_LIFETIME and REFRESH_TOKEN_LIFETIME.
+# auth_cookies.py
+
+
 
 
 def _cookie_params(max_age: int) -> dict:

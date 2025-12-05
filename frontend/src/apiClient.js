@@ -115,7 +115,7 @@ async function doApiFetch(path, options = {}, { allowRefresh } = { allowRefresh:
   const contentType = res.headers.get("content-type") || ""; // Get Content-Type header for response, default to empty string if missing
 
 
-  // Handle non-2xx responses
+  // Handle non-2xx responses  and 401 with optional refresh
   if (!res.ok) { // If response status is not in 200-299 range
     // 🔁 Special handling for 401: try one refresh, then retry once.
     // 401 Unauthorized → “you are not authenticated (or your credentials are no longer valid).”
