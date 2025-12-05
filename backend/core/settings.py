@@ -210,7 +210,7 @@ DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
 # Django REST Framework Simple JWT settings
 SIMPLE_JWT = {
     "ACCESS_TOKEN_LIFETIME": timedelta(minutes=10),
-    "REFRESH_TOKEN_LIFETIME": timedelta(days=7),
+    "REFRESH_TOKEN_LIFETIME": timedelta(days=1),
     "ROTATE_REFRESH_TOKENS": True,  # Generate a new refresh token when the old one is used
     "BLACKLIST_AFTER_ROTATION": True,  # Remember the old refresh tokens, so they can't be used again
 }
