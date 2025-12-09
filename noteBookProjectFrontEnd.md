@@ -896,3 +896,196 @@ export function ProtectedRoute({ children }) {
 -Logged-in user visiting / → sees HomePage
 -Refresh on / → stays on / (session restored via cookies + AuthProvider)
 -Logout + Back button → cannot see protected content again
+
+
+# ⭐ FE-007 — Authentication — Access + Refresh Token Flow (HttpOnly Cookies)
+
+This app uses **JWT authentication** with secure **HttpOnly cookies**.
+
+The frontend never reads, stores, or manipulates tokens.
+
+Instead:
+
+- The **backend** sets cookies
+- The **browser** sends cookies automatically
+- The **frontend** simply calls `/api/me/` to know who the current user is
+
+This section documents the full flow.
+
+---
+
+## 🧩 1. Tokens Overview
+
+| Token | Lifetime | Stored Where | Readable by JS? | Purpose |
+|-------|----------|--------------|-----------------|---------|
+| **Access Token** (`tt_access`) | 10 minutes | HttpOnly cookie | ❌ No | Auth for normal API calls |
+| **Refresh Token** (`tt_refresh`) | 1 day | HttpOnly cookie | ❌ No | Issues a new access token |
+
+---
+
+## 🚪 2. Login Flow (`POST /auth/token/`)
+
+When the user logs in:
+
+1. **Browser** sends credentials to `/api/auth/token/`
+
+2. **Django REST Framework SimpleJWT**:
+   - validates credentials
+   - returns **no tokens in JSON**
+   - sets two **HttpOnly cookies**:
+     - `tt_access`
+     - `tt_refresh`
+
+3. **Browser** receives cookies and stores them automatically
+
+4. **Frontend** calls `/api/me/` to load the user session
+
+### 📊 Sequence Diagram — Login
+sequenceDiagram
+    participant UI as Frontend (React)
+    participant BE as Backend (Django)
+    participant B as Browser Cookies
+
+    UI->>BE: POST /api/auth/token/ (username, password)
+    BE-->>B: Set-Cookie: tt_access=...
+    BE-->>B: Set-Cookie: tt_refresh=...
+    BE-->>UI: 200 OK
+
+    UI->>BE: GET /api/me/
+    BE->>B: (reads cookies automatically)
+    BE-->>UI: { id, username, email }
+
+---
+
+## 🔄 3. Normal API Call Flow (when access token is valid)
+
+Every time React calls `apiFetch("/api/me/")`:
+
+1. **Browser** automatically attaches cookies
+
+2. **Backend** validates `tt_access`
+
+3. **If valid** → returns JSON
+
+4. **If expired** → returns `401`
+
+This `401` triggers the refresh flow.
+
+---
+
+## ⏳ 4. Refresh Flow (access token expired)
+
+When `tt_access` expires (10 min), the first API call that needs authentication will fail:
+
+```
+Backend response:
+401 Unauthorized
+```
+
+But this is **expected**.
+
+Then:
+
+1. `apiFetch` automatically retries using:
+   ```
+   POST /api/auth/token/refresh/
+   ```
+
+2. **Browser** sends `tt_refresh` cookie
+
+3. **Backend**:
+   - validates refresh token
+   - issues new access token
+   - sets new HttpOnly cookie:
+     ```
+     Set-Cookie: tt_access=<new>
+     ```
+
+4. `apiFetch` retries the original failed request
+
+5. Everything continues normally
+
+### 📊 Sequence Diagram — Refresh Flow
+📊 Sequence Diagram — Refresh Flow
+sequenceDiagram
+    participant UI as React UI
+    participant BE as Backend
+    participant B as Browser Cookies
+
+    UI->>BE: GET /api/me/
+    BE-->>UI: 401 Unauthorized
+
+    UI->>BE: POST /auth/token/refresh/
+    BE->>B: Set-Cookie: tt_access=new_token
+    BE-->>UI: 200 OK (refresh succeeded)
+
+    UI->>BE: RETRY original request (/api/me/)
+    BE-->>UI: { id, username, email }
+
+---
+
+## ❌ 5. When the Refresh Token is Expired (1 day)
+
+If `tt_refresh` is expired or invalid:
+
+```
+/api/me/ → 401
+/auth/token/refresh/ → 401
+```
+
+`apiFetch` returns:
+```json
+{ "status": 401, "code": "AUTH_EXPIRED" }
+```
+
+The app should:
+- **logout** the user
+- **redirect** to `/login`
+
+---
+
+## 🧠 6. Mental Model Diagram
+
+Think about it like this:
+
+```
+LOGIN
+   |
+   |---> tt_access (10 min)
+   |---> tt_refresh (1 day)
+              |
+              +--> Automatically renews tt_access
+```
+
+**The user stays logged in for up to 1 day as long as they are active.**
+
+After one day → **full re-login is required**.
+
+---
+
+## 🧪 7. How to Test the Flow (Developer Checklist)
+
+### After login:
+
+✅ **Network** → `POST /auth/token/` contains:
+- `Set-Cookie: tt_access`
+- `Set-Cookie: tt_refresh`
+
+✅ In **Application → Cookies**:
+- You should see both cookies
+
+### After 10 minutes:
+
+✅ `/api/me/` returns `401` → **expected**
+
+✅ Browser sends refresh token
+
+✅ New `tt_access` appears
+
+### After 1 day:
+
+✅ Refresh fails
+
+✅ `AuthProvider` receives `"AUTH_EXPIRED"`
+
+✅ User is logged out

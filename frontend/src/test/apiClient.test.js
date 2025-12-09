@@ -133,6 +133,10 @@ describe("apiFetch", () => {
     expect(secondUrl).toContain("/api/auth/token/refresh/");
   });
 
+
+  //-------------------------------------------------------------------------------------------------------------------------------
+  // This test verifies that if the refresh token request also fails, our apiFetch function throws an error with code AUTH_EXPIRED.
+
   it("if refresh also fails, throws error with code AUTH_EXPIRED", async () => {
     // Call 1: original request → 401
     // Call 2: refresh endpoint → 401 again (refresh fails)
