@@ -1,7 +1,7 @@
 // src/pages/LoginPage.jsx
 import React, { useEffect, useState } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
-import { useAuth } from "../auth/AuthContext"; // ✅ adjust if your path is different
+import { useAuth } from "../auth/useAuth"; // ✅ Fixed import path
 
 function LoginPage() {
   const { user, isLoading, login } = useAuth();

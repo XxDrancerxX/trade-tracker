@@ -9,7 +9,7 @@ import { Routes, Route, Navigate } from "react-router-dom"; // React Router comp
 // Routes: container for Route elements, matches the current URL to a Route.
 // Route: defines a mapping from a path to a component.
 // Navigate: component to programmatically redirect to another route.
-import { useAuth } from "./auth/AuthContext";  // Custom hook to access auth context. 
+import { useAuth } from "./auth/useAuth";  // Custom hook to access auth context. 
 import LoginPage from "./pages/LoginPage.jsx"; //  Login page component.
 import SignupPage from "./pages/SignUpPage.jsx"; // Signup page component.
 import { apiFetch } from "./apiClient.js"; // Custom API fetch function with auth handling.

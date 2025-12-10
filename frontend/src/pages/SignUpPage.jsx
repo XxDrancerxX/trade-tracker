@@ -1,7 +1,7 @@
 // src/pages/SignupPage.jsx
 import React, { useState, useEffect } from "react";
 import { Link, useNavigate } from "react-router-dom";
-import { useAuth } from "../auth/AuthContext"; // adjust path if needed
+import { useAuth } from "../auth/useAuth"; // adjust path if needed
 
 function SignupPage() {
     const { user, isLoading, register } = useAuth(); // Custom hook to access auth context.
