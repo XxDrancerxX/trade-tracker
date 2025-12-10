@@ -1,4 +1,4 @@
-// filepath: frontend/src/apiClient.test.js
+/* eslint-env node */
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { apiFetch } from "../apiClient.js";
 //------------------------------------------------------------------------------------------------------------------------------
@@ -35,9 +35,9 @@ function makeJsonResponse(body, status = 200) {
 // Groups all tests related to apiFetch together
 describe("apiFetch", () => {   
   beforeEach(() => {  
-    global.fetch = vi.fn()
+    globalThis.fetch = vi.fn()
     // vi.fn() - Creates a spy function (records all calls)    
-    // global.fetch = - Replaces the real fetch() with our mock
+    // globalThis.fetch = - Replaces the real fetch() with our mock
   });
  
 
@@ -58,7 +58,7 @@ describe("apiFetch", () => {
     // Path: /api/test
     // Options: { method: "POST", body: { hello: "world" } }    
 
-    global.fetch.mockResolvedValue(makeJsonResponse({ ok: true })); // Mock fetch to return a successful response
+    globalThis.fetch.mockResolvedValue(makeJsonResponse({ ok: true })); // Mock fetch to return a successful response
     // apiFetch() will call fetch() internally, so we need to mock it first.
     //mockResolvedValue() - Tells the spy to return a resolved Promise with our fake response when called.
 
@@ -71,12 +71,12 @@ describe("apiFetch", () => {
     expect(result).toEqual({ ok: true });
 
     // 2) fetch should have been called exactly once
-    expect(global.fetch).toHaveBeenCalledTimes(1);
+    expect(globalThis.fetch).toHaveBeenCalledTimes(1);
 
     // 3) Inspect how fetch was called
     //	Gets arguments from the first call to the spy
     // When we create a spy with vi.fn(), Vitest automatically tracks every call to that function in a special array called mock.calls.
-    const [url, options] = global.fetch.mock.calls[0];
+    const [url, options] = globalThis.fetch.mock.calls[0];
 
     // URL should include the path
     expect(url).toContain("/api/test");
@@ -98,7 +98,7 @@ describe("apiFetch", () => {
 
   it("on 401 once, calls /auth/token/refresh then retries original request", async () => {
     // Call 1: original request → 401 Unauthorized
-    global.fetch
+    globalThis.fetch
       .mockResolvedValueOnce(
         makeJsonResponse({ detail: "Unauthorized" }, 401)
       )
@@ -119,11 +119,11 @@ describe("apiFetch", () => {
     expect(result).toEqual({ user: "alice" });
 
     // 3 calls total: original, refresh, retry
-    expect(global.fetch).toHaveBeenCalledTimes(3);
+    expect(globalThis.fetch).toHaveBeenCalledTimes(3);
 
-    const [firstUrl] = global.fetch.mock.calls[0];
-    const [secondUrl] = global.fetch.mock.calls[1];
-    const [thirdUrl] = global.fetch.mock.calls[2];
+    const [firstUrl] = globalThis.fetch.mock.calls[0];
+    const [secondUrl] = globalThis.fetch.mock.calls[1];
+    const [thirdUrl] = globalThis.fetch.mock.calls[2];
 
     // First and third calls are the same endpoint (/api/me/)
     expect(firstUrl).toContain("/api/me/");
@@ -140,7 +140,7 @@ describe("apiFetch", () => {
   it("if refresh also fails, throws error with code AUTH_EXPIRED", async () => {
     // Call 1: original request → 401
     // Call 2: refresh endpoint → 401 again (refresh fails)
-    global.fetch
+    globalThis.fetch
       .mockResolvedValueOnce(
         makeJsonResponse({ detail: "Unauthorized" }, 401)
       )
@@ -162,6 +162,6 @@ describe("apiFetch", () => {
     expect(caught.body).toEqual({ detail: "Refresh failed" });
 
     // Only 2 calls: original + refresh (no retry because refresh failed)
-    expect(global.fetch).toHaveBeenCalledTimes(2);
+    expect(globalThis.fetch).toHaveBeenCalledTimes(2);
   });
 });

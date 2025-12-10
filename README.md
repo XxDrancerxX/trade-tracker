@@ -1,3 +1,8 @@
+# Trade Tracker
+![Frontend CI](https://github.com/XxDrancerxX/trade-tracker/actions/workflows/frontend-ci.yml/badge.svg)
+
+
+
 ## Backend Setup: Using Python Virtual Environments (.venv)
 
 👉 See detailed developer notes in [noteBookProject.md](./noteBookProjectBackEnd.md)
@@ -140,3 +145,6 @@ Runs Django’s system check framework. It validates settings and common mistake
 pytest -q:
 Runs your tests in quiet mode (less noise; still fails fast on errors).
 Keeping those comments in YAML is fine—comments don’t affect execution.
+
+
+
