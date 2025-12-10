@@ -2,7 +2,10 @@
 import React from "react";
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { render, screen, waitFor, act } from "@testing-library/react";
-import { AuthProvider, useAuth } from "../auth/AuthContext.jsx";
+import { AuthProvider } from "../auth/AuthProvider.jsx";
+import { useAuth } from "../auth/useAuth";
+import { apiFetch } from "../apiClient.js";
+
 
 //===============================================================================================================================
 // These are Vitest testing utilities:
@@ -33,7 +36,7 @@ vi.mock("../apiClient.js", () => ({
 
 //We import after the mock to ensure we get the mocked fake version of apiFetch so we can control its behavior in tests.
 //We do all this to don't make real network requests during tests and to simulate different API responses.
-import { apiFetch } from "../apiClient.js";
+
 
 // Small helper component to read context in tests
 // The variable latestAuth exists outside the function, but its value gets updated from inside the function. Once updated, we can use it anywhere in the module

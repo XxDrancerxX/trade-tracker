@@ -3,27 +3,23 @@ import React from "react";
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { render, screen } from "@testing-library/react";
 import { ProtectedRoute } from "../auth/ProtectedRoute.jsx";
-import { Navigate } from "react-router-dom";
 
-
-
-// 🧪 Mock useAuth from AuthContext
-//Replaces the entire AuthContext.jsx module with a fake version
-//the fake version only exports useAuth as a mock function (vi.fn())
-//We just want to test how ProtectedRoute reacts to different auth states
-// By mocking useAuth, we can easily simulate: loading, logged in, logged out
-vi.mock("../auth/AuthContext.jsx", () => ({
+// 🧪 Mock useAuth hook
+// Replaces the useAuth module with a mock function
+// This lets us control what useAuth returns in each test
+vi.mock("../auth/useAuth", () => ({
   useAuth: vi.fn(),
 }));
 
+// Mock react-router-dom components
 vi.mock("react-router-dom", () => ({
   Navigate: ({ to }) => <div>Redirect to {to}</div>,
   useLocation: () => ({ pathname: "/some-path" }),
 }));
 
+// Import AFTER mocks
+import { useAuth } from "../auth/useAuth";
 
-//We import here to set up the mock return values
-import { useAuth } from "../auth/AuthContext.jsx";
 
 
 describe("ProtectedRoute", () => {
