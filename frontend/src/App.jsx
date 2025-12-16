@@ -49,7 +49,8 @@ function Header() {
       {!isLoading && user && ( // If not loading and user is logged in, show username and logout button
         <> {/* This is a React Fragment - a wrapper that doesn't create an actual HTML element.  */}
           <span style={{ marginRight: "1rem" }}>
-            Logged in as <strong>{user.username}</strong>
+            Logged in as{" "}
+            <strong data-testid="nav-username">{user.username}</strong>
           </span>
           <button onClick={handleLogout}>Logout</button> {/* Logout button triggers handleLogout */}
         </>

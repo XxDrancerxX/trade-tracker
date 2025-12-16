@@ -21,7 +21,21 @@ def sync_coinbase_fills_once(cred: ExchangeCredential, limit: int = 50, product_
         limit=limit,
         product_id=product_id,
         order_id=order_id,
-    ) # Fetch fills from Coinbase using the adapter's fills method, limited to the specified number.
+    ) 
+    
+    # Fetch fills from Coinbase using the adapter's fills method, limited to the specified number.
+        # ✅ Defensive: ensure fills is a list (Coinbase errors can be dicts)
+    if isinstance(fills, dict):
+        # Common error shape
+        if "message" in fills:
+            raise RuntimeError(f"Coinbase error: {fills['message']}")
+        # Some APIs return {"data": [...]}
+        if "data" in fills and isinstance(fills["data"], list):
+            fills = fills["data"]
+
+    if not isinstance(fills, list): # Ensure that the fills variable is a list.
+        raise RuntimeError(f"Unexpected fills response type: {type(fills)}")
+
 
     rows: List[SpotTrade] = []
     bad_count = 0
@@ -76,10 +90,10 @@ def sync_coinbase_fills_once(cred: ExchangeCredential, limit: int = 50, product_
     if dupes_in_page:
         logger.info("skipping %d duplicates in current page", dupes_in_page)
 
-    inserted = 0
+    attempted = 0
     if unique_rows:
+        attempted = len(unique_rows)
         with transaction.atomic():
             SpotTrade.objects.bulk_create(unique_rows, ignore_conflicts=True, batch_size=500)
-            inserted = len(unique_rows)
 
-    return inserted, seen
+    return attempted, seen

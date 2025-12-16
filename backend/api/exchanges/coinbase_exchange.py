@@ -180,6 +180,11 @@ class CoinbaseExchangeAdapter:  # handle authentication for Coinbase API request
         # order_id: Optional filter by order ID.
         path = "/fills" # API endpoint path
         params = {}
+
+        # Must provide at least one filter
+        if not product_id and not order_id:
+            raise ValueError("Coinbase /fills requires product_id or order_id (e.g. BTC-USD)")
+
         if limit is not None:
             params["limit"] = int(limit)
         if product_id:
