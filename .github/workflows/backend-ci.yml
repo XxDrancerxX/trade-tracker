@@ -1,0 +1,56 @@
+#CI (Continuous Integration): every push/PR triggers a fresh machine that installs your app and runs checks/tests automatically.
+
+#Interpreter: the actual Python executable used to run your code (python) ->
+#Choosing 3.12 means the VM will run exactly Python 3.12, same as local, avoiding “works on my machine” bugs.
+
+#Dependencies = the packages your code needs to run/tests need to execute (Django, DRF, pytest, cryptography, etc.)->
+#They live in backend/requirements.txt.  "python -m pip install -U pip"  upgrades pip to avoid old resolver issues.
+
+
+
+name: tests #Human-friendly name for this workflow shown in the Actions tab. 
+on:  #Triggers: run this workflow on every push and on every pull request.(You can filter later by branches/tags if needed.)
+  push:
+  pull_request:
+
+# A workflow run is made up of one or more jobs that can run sequentially or in parallel.
+# We have a single job called "test" that runs our tests.    
+jobs:
+  test:
+    runs-on: ubuntu-latest # The type of runner that the job will run on. Here, we use the latest version of Ubuntu. t’s ephemeral: created for the job, deleted after(no files persist).
+    # All steps below will run in the backend directory where manage.py lives.brand-new Linux virtual machine for this job
+
+    defaults: # Default settings for all steps in a job. Here, we set the working directory to backend where manage.py lives.
+    # Because manage.py and requirements.txt are in backend/, every run: will execute inside backend/. (No need to cd backend in each step.)
+      run:
+        working-directory: backend   # manage.py lives here
+    steps: # A job contains a sequence of tasks called steps. Steps can run commands or use an action.Steps run sequentially in the same VM.
+      - name: Checkout #- checkout the code so we can run tests on it.pulls your repo into the VM.
+        uses: actions/checkout@v4 #uses: = run a reusable Action from the GitHub Marketplace. This one clones your repo into the VM so the next steps see your code.
+
+      - name: Set up Python # Installs and configures Python 3.12 on the VM and makes it the active interpreter for following steps. (Keeps CI aligned with local.)
+        uses: actions/setup-python@v5 # v5 is the latest version as of 2024-06-10   
+        with:
+          python-version: "3.12"
+         
+        #(It expects backend/requirements.txt since we’re already in backend.)
+        #Runs a shell script inside backend/ (because of defaults).
+        #Installs pip, then installs dependencies from requirements.txt.           
+      - name: Install dependencies
+        run: |
+          python -m pip install -U pip
+          python -m pip install -r requirements.txt   
+
+      - name: Run checks & tests
+        env:
+          # CI-safe values – do NOT put real secrets here
+          #
+          SECRET_KEY: "ci-secret-not-for-prod"
+          DEBUG: "False" #in CI, always run with DEBUG=False to mimic production. We set false to catchconfig issues early.
+          FIELD_ENCRYPTION_KEY: ${{ secrets.FIELD_ENCRYPTION_KEY }}
+          JWT_SECRET: ${{ secrets.JWT_SECRET }}
+
+        #Django config sanity check. Then run pytest in quiet mode (less output).  
+        run: |
+          python manage.py check   
+          pytest -q
