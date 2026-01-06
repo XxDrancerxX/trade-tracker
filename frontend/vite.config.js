@@ -7,14 +7,13 @@ export default defineConfig({
     host: true,      // same as 0.0.0.0, exposes to port-forwarding proxy
     port: 5173       // keep consistent with the forwarded port
   },
-  test:{
-  // use jsdom to simulate browser environment
-  environment: "jsdom",
-  // setup files to configure testing framework
-  setupFiles: "./src/test/setupTests.js",
-  // enable global variables like `describe` and `it`
-  globals: true,
+  test: {
+    environment: "jsdom",
+    globals: true,
+    setupFiles: ["./src/test/setupTests.js"],
+    include: ["src/test/**/*.{test,spec}.{js,jsx,ts,tsx}"],
+    exclude: ["e2e/**", "**/e2e/**", "**/*.e2e.*", "node_modules/**", "dist/**"],
+  },
 
-}
 })
 

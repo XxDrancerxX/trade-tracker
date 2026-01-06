@@ -1,23 +1,21 @@
+// frontend/playwright.config.js
 import { defineConfig } from "@playwright/test";
 
 export default defineConfig({
-  testDir: ".",
-  testMatch: ["**/*.spec.js"],
-  timeout: 30_000,
-  retries: process.env.CI ? 2 : 0,
+  testDir: "e2e",
+  testMatch: "**/*.spec.js",
   use: {
     baseURL: process.env.E2E_BASE_URL || "http://localhost:5173",
     headless: true,
-    trace: "on-first-retry",
-    screenshot: "only-on-failure",
-    video: "retain-on-failure",
   },
-  webServer: process.env.CI
-    ? undefined
-    : {
-        command: "npm run dev -- --host 0.0.0.0 --port 5173",
-        url: "http://localhost:5173",
-        reuseExistingServer: true,
-        timeout: 120_000,
-      },
+
+  webServer: {
+    command: "npm run dev -- --host 0.0.0.0 --port 5173",
+    url: process.env.E2E_BASE_URL || "http://localhost:5173",
+    reuseExistingServer: !process.env.CI, // local: reuse if already running, CI: always start fresh
+    timeout: 120_000,
+    env: {
+      VITE_API_URL: process.env.VITE_API_URL || "http://localhost:8000",
+    },
+  },
 });
