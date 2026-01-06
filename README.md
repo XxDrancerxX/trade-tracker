@@ -1,5 +1,6 @@
 # Trade Tracker
 ![Frontend CI](https://github.com/XxDrancerxX/trade-tracker/actions/workflows/frontend-ci.yml/badge.svg)
+[![Backend CI](https://github.com/XxDrancerxX/trade-tracker/actions/workflows/pytest.yml/badge.svg)](https://github.com/XxDrancerxX/trade-tracker/actions/workflows/pytest.yml)
 
 
 

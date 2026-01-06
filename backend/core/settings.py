@@ -124,8 +124,8 @@ CSRF_TRUSTED_ORIGINS = list(dict.fromkeys(_trusted_origins)) # Trust CSRF from t
 
 
 MIDDLEWARE = [
-    "django.middleware.security.SecurityMiddleware",
-    "corsheaders.middleware.CorsMiddleware",   # as high as possible, before CommonMiddleware
+    "corsheaders.middleware.CorsMiddleware",
+    "django.middleware.security.SecurityMiddleware",      
     "django.contrib.sessions.middleware.SessionMiddleware",
     "django.middleware.common.CommonMiddleware",
     "django.middleware.csrf.CsrfViewMiddleware",
