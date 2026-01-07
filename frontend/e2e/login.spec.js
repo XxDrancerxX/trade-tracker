@@ -29,9 +29,8 @@ test("login redirects and shows username", async ({ page }) => {
   // The login flow is: submit → API call → fetch user → redirect
   await submitBtn.click();
   
-  // Wait for the page to navigate away from /login
-  // This waits for the actual redirect after successful login
-  await page.waitForURL("http://localhost:5173/", { timeout: 30_000 });
+  // Wait for the page URL to update after successful login
+  await expect(page).toHaveURL("http://localhost:5173/", { timeout: 30_000 });
 
   // Verify username is displayed in navbar
   const navUsername = page.getByTestId("nav-username");
