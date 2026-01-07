@@ -1337,5 +1337,223 @@ npm run lint -- --fix
 5. **CI/CD:** Automated testing prevents regressions
 6. **Documentation:** Tests serve as usage examples
 
+-------------------------------------------------------------------------------------------------------------------------
+
+# FE-010 — End-to-End Testing & CI Setup
+
+**Personal Notes & Learning Summary**
+
 ---
 
+## 🎯 Objective
+
+Build a complete, production-ready testing pipeline for Trade Tracker: 
+- Unit tests (frontend & backend)
+- Integration tests
+- E2E testing with Playwright
+- CI via GitHub Actions
+- CI status badges
+
+---
+
+## 🏗️ What Was Implemented
+
+### Backend
+- ✅ Pytest unit & integration tests
+- ✅ Mocked external APIs (Coinbase)
+- ✅ CI workflow running backend tests headless
+
+### Frontend
+- ✅ Vitest unit tests (AuthContext, ProtectedRoute, API client)
+- ✅ Playwright E2E login test
+- ✅ Frontend CI workflow
+- ✅ E2E works locally and in CI
+
+---
+
+## 🧠 Key Concepts — Testing Layers
+
+**Three distinct layers, each catching different types of bugs:**
+
+| Layer       | Tool           | Purpose                        |
+|-------------|----------------|--------------------------------|
+| Unit        | Vitest/Pytest  | Test logic in isolation        |
+| Integration | Pytest         | Test backend services + adapters|
+| E2E         | Playwright     | Test real app like a user      |
+
+---
+
+## 🔧 Backend Testing (Pytest)
+
+### Key Learnings
+- External APIs **must** be mocked
+- Query params must match exactly in mocks
+- Use `responses` + `matchers.query_param_matcher`
+- Tests must **not** depend on network
+
+### CI Workflow
+- **File:** `.github/workflows/pytest.yml`
+- **Triggers:** Every push & PR
+- **Python version:** 3.12
+- **Dependencies:** `backend/requirements.txt`
+- **Commands:**
+  ```bash
+  python manage.py check
+  pytest -q
+  ```
+
+### Badge
+```markdown
+![Backend CI](https://github.com/XxDrancerxX/trade-tracker/actions/workflows/pytest.yml/badge.svg)
+```
+
+---
+
+## ⚛️ Frontend Unit Tests (Vitest)
+
+### What Was Fixed
+- Proper `vite.config.js` test configuration
+- Excluded `e2e/` from Vitest
+- Installed missing dependencies (`@testing-library/jest-dom`)
+- All frontend unit tests pass cleanly
+
+### Run Command
+```bash
+npm test
+```
+
+---
+
+## 🎭 E2E Testing (Playwright)
+
+### Test Flow (`login.spec.js`)
+1. Open `/login`
+2. Fill username + password
+3. Submit login form
+4. Assert redirect happened
+5. Assert username visible in navbar
+
+**→ Simulates real user interaction**
+
+---
+
+## ⚠️ Critical Playwright Learnings
+
+### 1. Headed vs Headless
+- **Codespaces/CI:** No X server available
+- `--headed` ❌ Fails
+- **Headless mode** ✅ Required for CI
+
+### 2. Vitest vs Playwright Separation
+- Vitest must **NOT** see `e2e/*.spec.js`
+- Playwright tests must **NOT** be run by Vitest
+- ✅ Fixed via `vite.config.js` exclude rules
+
+---
+
+## ⚙️ Playwright Configuration
+
+**File:** `frontend/playwright.config.js`
+
+```javascript
+import { defineConfig } from "@playwright/test";
+
+export default defineConfig({
+  testDir: "e2e",
+  testMatch: "**/*.spec.js",
+  use: {
+    baseURL: process.env.E2E_BASE_URL || "http://localhost:5173",
+    headless:  true,
+  },
+  webServer: process.env.CI
+    ? undefined
+    : {
+        command: "npm run dev -- --host 0.0.0.0 --port 5173",
+        url: "http://localhost:5173",
+        timeout: 120_000,
+        env: {
+          VITE_API_URL: "http://localhost:8000",
+        },
+      },
+});
+```
+
+---
+
+## 🚀 Commands Reference
+
+### Local E2E Testing
+```bash
+npx playwright test
+```
+
+### Debug Mode
+```bash
+DEBUG=pw:api npx playwright test
+```
+
+### CI
+Runs headless automatically via workflow
+
+---
+
+## 🤖 GitHub Actions Setup
+
+### Workflows Implemented
+
+| Workflow          | Purpose               |
+|-------------------|-----------------------|
+| `pytest.yml`      | Backend tests         |
+| `frontend-ci.yml` | Frontend unit tests   |
+| `frontend-e2e.yml`| Playwright E2E        |
+
+**Result:**
+- ✅ PRs show green checks
+- ✅ Failures block merges
+- ✅ Badges reflect real-time status
+
+---
+
+## 📛 Status Badges
+
+Now displaying:
+- ✅ Frontend CI badge
+- ✅ Backend CI badge
+
+**Signals professional engineering discipline**
+
+---
+
+## 💡 Why This Matters
+
+**What I've built:**
+- ✅ Regression protection
+- ✅ Confidence to refactor safely
+- ✅ CI parity with production systems
+- ✅ Interview-level testing setup
+- ✅ Portfolio-grade project
+
+**This is production-level engineering.**
+
+---
+
+## ✅ Definition of Done
+
+- [x] Backend tests pass locally & CI
+- [x] Frontend unit tests pass
+- [x] Playwright E2E passes locally & CI
+- [x] CI badges visible in README
+- [x] No test framework conflicts
+- [x] Headless-safe configuration
+
+---
+
+## 📝 Personal Takeaways
+
+- Testing layers are **not optional** — they catch different bug classes
+- Mocking is **critical** for reliable, fast tests
+- Headless mode is **required** for CI environments
+- Proper separation between unit and E2E test runners prevents conflicts
+- CI badges are a **visible signal** of code quality
+
+**Status:** ✅ Complete — FE-010 shipped successfully

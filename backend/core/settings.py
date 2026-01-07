@@ -43,6 +43,8 @@ SECURE_PROXY_SSL_HEADER = ("HTTP_X_FORWARDED_PROTO", "https") # For correct dete
 
 # Frontend URLs (optional .env: FRONTEND_URLS="https://app.example,https://staging.example")
 FRONTEND_URLS = [u.strip() for u in os.getenv("FRONTEND_URLS", "").split(",") if u.strip()] # List of allowed frontend URLs for CORS.
+if DEBUG and not FRONTEND_URLS:
+    FRONTEND_URLS = ["http://localhost:5173", "http://127.0.0.1:5173"]
 
 # Only enforce these in production:
 # ---- Security flags: enable ONLY in production ---------------------
@@ -102,7 +104,7 @@ _trusted_origins = list(FRONTEND_URLS) # Start with frontend URLs
 if DEBUG:
     dev_ports = [
         port.strip()
-        for port in os.getenv("DEV_SERVER_PORTS", "8000").split(",")
+        for port in os.getenv("DEV_SERVER_PORTS", "5173,8000").split(",")
         if port.strip()
     ]
     for port in dev_ports:
@@ -124,8 +126,8 @@ CSRF_TRUSTED_ORIGINS = list(dict.fromkeys(_trusted_origins)) # Trust CSRF from t
 
 
 MIDDLEWARE = [
-    "django.middleware.security.SecurityMiddleware",
-    "corsheaders.middleware.CorsMiddleware",   # as high as possible, before CommonMiddleware
+    "corsheaders.middleware.CorsMiddleware",
+    "django.middleware.security.SecurityMiddleware",      
     "django.contrib.sessions.middleware.SessionMiddleware",
     "django.middleware.common.CommonMiddleware",
     "django.middleware.csrf.CsrfViewMiddleware",

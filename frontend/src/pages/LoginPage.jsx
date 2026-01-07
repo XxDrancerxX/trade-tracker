@@ -67,6 +67,7 @@ function LoginPage() {
           <label>
             Username
             <input
+              data-testid="login-username"
               type="text"
               value={username}
               onChange={(e) => setUsername(e.target.value)}
@@ -80,6 +81,7 @@ function LoginPage() {
           <label>
             Password
             <input
+              data-testid="login-password"
               type="password"
               value={password}
               onChange={(e) => setPassword(e.target.value)}
@@ -90,6 +92,7 @@ function LoginPage() {
         </div>
 
         <button
+          data-testid="login-submit"
           type="submit"
           disabled={isSubmitting || isLoading}
           style={{ marginTop: "0.5rem", width: "100%" }}

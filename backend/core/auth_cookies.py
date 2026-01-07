@@ -1,6 +1,7 @@
 # This module provides helper functions to set and clear authentication cookiess on Django responses for auth.
 
 from rest_framework_simplejwt.settings import api_settings as jwt_settings # to access JWT settings like token lifetimes.
+from django.conf import settings
 #api_settings contains settings like ACCESS_TOKEN_LIFETIME and REFRESH_TOKEN_LIFETIME.
 # auth_cookies.py
 
@@ -16,11 +17,14 @@ def _cookie_params(max_age: int) -> dict:
     - SameSite="None"  -> allows cross-origin requests (5173 -> 8000) with credentials
     - path="/"         -> cookie sent to all API paths
     """
+    secure = not settings.DEBUG
+    samesite = "None" if secure else "Lax"
+
     return {
         "max_age": max_age,
         "httponly": True,
-        "secure": True,
-        "samesite": "None",
+        "secure": secure,
+        "samesite": samesite,
         "path": "/",
     }
 
