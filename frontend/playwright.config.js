@@ -1,3 +1,4 @@
+// playwright.config.js (or .ts)
 import { defineConfig } from "@playwright/test";
 
 export default defineConfig({
