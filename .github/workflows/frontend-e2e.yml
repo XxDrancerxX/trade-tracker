@@ -55,11 +55,11 @@ jobs:
       - name: Wait for backend
         run: |
           for i in {1..30}; do
-            if curl -sSf http://localhost:8000/ >/dev/null 2>&1; then
+            if curl -sSf http://localhost:8000/api/me/ >/dev/null 2>&1; then
               echo "Backend is up!"
               exit 0
             fi
-            echo "Waiting for backend..."
+            echo "Waiting for backend... ($i/30)"
             sleep 1
           done
           echo "Backend did not start in time"
@@ -83,6 +83,16 @@ jobs:
       - name: Install Playwright browsers
         working-directory: frontend
         run: npx playwright install --with-deps chromium
+
+      - name: Verify backend endpoints
+        run: |
+          echo "=== Testing /api/me/ ==="
+          curl -v http://localhost:8000/api/me/ || true
+          echo ""
+          echo "=== Testing login endpoint ==="
+          curl -v -X POST http://localhost:8000/api/auth/token/ \
+            -H "Content-Type: application/json" \
+            -d '{"username":"superuser","password":"123456"}' || true
 
       # IMPORTANT:
       # Do NOT start Vite here.
